@@ -951,6 +951,14 @@ void EhrenSampleStepper::step(int niter)
        tmap["forktd_tot"].stop();
     }
 
+     // currently only print the time-dependent eigenvalues for ETRS and FORKTD
+    if (wf_dyn == "ETRS" || wf_dyn == "FORKTD"){
+        if (s_.ctrl.iprint > 0 && iter%s_.ctrl.iprint == 0){
+            s_.wf.diag(dwf,true);
+            s_.wf.printeig();
+        }
+    }
+
     // AS: energy renormalization is currently disabled
     // output of the renormalized energy
     // double wf_dyn_energy;
@@ -1026,8 +1034,6 @@ void EhrenSampleStepper::step(int niter)
        }                  
     }
     
-    if (s_.ctrl.iprint > 0 && iter%s_.ctrl.iprint == 0)
-       s_.wf.printocc(); 
     
     // AS: for the correct output of the energy
     if ( s_.ctrl.non_selfc_energy && (wf_dyn!="SORKTD") && (wf_dyn!="FORKTD") )
