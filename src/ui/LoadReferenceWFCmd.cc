@@ -51,7 +51,8 @@ int LoadReferenceWFCmd::action(int argc, char **argv) {
   if ( !(argc>=2 && argc<=3 ) ) 
   {
     if ( ui->oncoutpe() )
-      cout << "  <!-- use: load -states filename -->" << endl;
+        cout << "  <!-- use: load_reference_wf -states filename -->" 
+             << endl;
     return 1;
   }
   
@@ -70,7 +71,7 @@ int LoadReferenceWFCmd::action(int argc, char **argv) {
     else 
     {
       if ( ui->oncoutpe() )
-        cout << "  <!-- use: load -states filename -->" 
+        cout << "  <!-- use: load_reference_wf -states filename -->" 
              << endl;
       return 1;
     }
@@ -79,7 +80,7 @@ int LoadReferenceWFCmd::action(int argc, char **argv) {
   if ( filename == 0 ) 
   {
     if ( ui->oncoutpe() )
-      cout << "  <!-- use: load -states  filename -->" 
+        cout << "  <!-- use: load_reference_wf -states filename -->" 
            << endl;
     return 1;
   }
@@ -93,4 +94,5 @@ int LoadReferenceWFCmd::action(int argc, char **argv) {
      *(s->previous_wf) = s->wf;
      (*(s->previous_wf)).update_occ(0.0,0);
   }
+  return 0;
 }
