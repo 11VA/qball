@@ -492,10 +492,10 @@ void EhrenSampleStepper::step(int niter)
           occ_current.clear();
           
           double electron_hole_pair_count=0.0;
+          const int nocc_line = 8;
           // CW: store information about occ of current wf in occ_current
 	  if ( oncoutpe )
 	  {
-	    cout << "occupation numbers: " << endl;
 
             for (int i=0; i<(wf.sd(ispin,ikp)->c()).n(); i++) 
             {
@@ -509,10 +509,15 @@ void EhrenSampleStepper::step(int niter)
           // CW: calculate the electron-hole pair, i.e., the sume of the difference between occ_current and 0K fermi_distribution
 	  if ( oncoutpe )
 	  {
-            for (int i=0; i<(wf.sd(ispin,ikp)->c()).n(); i++)
+            const int nocc=(wf.sd(ispin,ikp)->c()).n();
+            cout <<    "  <occupation spin=\""<<ispin<<"\" kpoint=\""<< wf.sd(ispin,ikp)->kpoint()<< setprecision(8) << "\" n=\""<<nocc<<"\" >" <<endl;
+            for (int i=0; i<nocc; i++)
             {
-               cout << occ_result[i] << endl;
+               cout << setw(12)<<setprecision(8)<< occ_result[i];
+               if(i%nocc_line==nocc_line-1) cout<<endl;
             }
+            if ( nocc%nocc_line != 0 ) cout << endl;
+            cout << "  </occupation>" << endl;
 
             for (int i=0; i<(wf.sd(ispin,ikp)->c()).n(); i++)
             {
@@ -520,6 +525,10 @@ void EhrenSampleStepper::step(int niter)
             }
             
             cout << " Number of electron-hole pairs: " << electron_hole_pair_count << endl;
+            if(electron_hole_pair_count>cd_.nelectrons()){
+                cout<<"<ERROR>"<<endl<<"electron-hole pairs are more than the total number of electrons in the pseudo-potentials"<<endl<<"</ERROR>"<<endl;
+                exit(2);
+            }
           }
         }
       }
