@@ -510,7 +510,7 @@ void EhrenSampleStepper::step(int niter)
 	  if ( oncoutpe )
 	  {
             const int nocc=(wf.sd(ispin,ikp)->c()).n();
-            cout <<    "  <occupation spin=\""<<ispin<<"\" kpoint=\""<< wf.sd(ispin,ikp)->kpoint()<< setprecision(8) << "\" n=\""<<nocc<<"\" >" <<endl;
+            cout <<    "  <occupation spin=\""<<ispin<<"\" kpoint=\""<< wf.sd(ispin,ikp)->kpoint()<< setprecision(8) << "\" n=\""<<nocc<<"\">" <<endl;
             for (int i=0; i<nocc; i++)
             {
                cout << setw(12)<<setprecision(8)<< occ_result[i];
