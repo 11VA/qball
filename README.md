@@ -1,4 +1,5 @@
 # Qball
+This version is built on the [vector\_potential](https://github.com/LLNL/qball/tree/vector_potential) branch with a new interface of exporting the occupation number.
 
 ## Installing
 

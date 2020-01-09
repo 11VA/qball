@@ -1130,9 +1130,9 @@ void ComplexMatrix::getsub(const ComplexMatrix &a,
   assert(m<=a.m());
   int ione = 1;
   int gictxt;
-  //Cblacs_get( 0, 0, &gictxt );
+  Cblacs_get( 0, 0, &gictxt );
   //ewd:  Cblacs_get returns wrong context handle for multiple k-points
-  gictxt = ictxt_;
+  //gictxt = ictxt_;
   pzgemr2d(&m,&n,a.val,&iap,&jap,a.desc_,val,&ione,&ione,desc_,&gictxt);
 #else
   for ( int j = 0; j < n; j++ )
@@ -3610,6 +3610,41 @@ void ComplexMatrix::print_norm(ostream& os) const
     }
   }
 }
+void ComplexMatrix::sum_columns_square_occ(std::vector<double>& occ_result, std::vector<double> const & occ_current) const
+{
+  // Copy blocks of <blocksize> columns and print them on process (0,0)
+  // m_ and n_ should be the number of states
+  if ( m_ == 0 || n_ == 0 ) return;
+  Context ctxtl(1,1);
+  const int blockmemsize = 32768; // maximum memory size of a block in bytes
+  // compute maximum block size: must be at least 1
+  // size of complex double = 8*2 = 16 byte
+  int maxbs = max(1, (int) ((blockmemsize/sizeof(complex<double>))/m_));
+  ComplexMatrix t(ctxtl,m_,maxbs);
+  int nblocks = n_ / maxbs + ( (n_%maxbs == 0) ? 0 : 1 );
+  int ia = 0;
+  int ja = 0;
+  for ( int jb = 0; jb < nblocks; jb++ )
+  {
+    int blocksize = ( (jb+1) * maxbs > n_ ) ? n_ % maxbs : maxbs;
+    //get submatrix A(ia:ia+m,ja:ja+n) of A
+    t.getsub(*this,t.m(),blocksize,ia,ja);
+    ja += blocksize;
+    if ( t.active() )
+    {
+      // this is done only on pe 0
+      for ( int jj = 0; jj < blocksize; jj++ )
+      {
+        for ( int ii = 0; ii < m_; ii++ )
+	{
+   //         occ_result[ii]+=norm(t.val[ii+t.mloc()*jj])*occ_current[jj+jb*maxbs];
+	        occ_result[jj+jb*maxbs]+=norm(t.val[ii+t.mloc()*jj])*occ_current[ii];
+	}
+      }
+    }
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ostream& operator<<(ostream& os, const DoubleMatrix& a)
 {

@@ -473,9 +473,73 @@ void EhrenSampleStepper::step(int niter)
     }
     tmap["ionic"].stop();
 
-    tmap["preupdate"].start();
-    wf_stepper->preupdate();
-    tmap["preupdate"].stop();
+
+    // CW: implement the method to calculate occupation number with respect to reference wf, i.e. s_.previous_wf
+    // CW: projection should be done before "preupdate"
+    if (s_.previous_wf != 0) 
+    {
+      for ( int ispin = 0; ispin < (wf).nspin(); ispin++ )
+      {
+        for ( int ikp = 0; ikp < (wf).nkp(); ikp++ )
+        {
+          ComplexMatrix ortho(wf.sd(ispin,ikp)->context(),(wf.sd(ispin,ikp)->c()).n(),(wf.sd(ispin,ikp)->c()).n(),(wf.sd(ispin,ikp)->c()).nb(),(wf     .sd(ispin,ikp)->c()).nb());
+          ortho.gemm('c','n',1.0,(wf).sd(ispin,ikp)->c(),(*s_.previous_wf).sd(ispin,ikp)->c(),0.0);
+          
+          std::vector<double> occ_result, occ_current;
+          occ_result.resize((wf.sd(ispin,ikp)->c()).n());
+          occ_current.resize((wf.sd(ispin,ikp)->c()).n());
+          occ_result.clear();
+          occ_current.clear();
+          
+          double electron_hole_pair_count=0.0;
+          const int nocc_line = 8;
+          // CW: store information about occ of current wf in occ_current
+	  if ( oncoutpe )
+	  {
+
+            for (int i=0; i<(wf.sd(ispin,ikp)->c()).n(); i++) 
+            {
+              occ_current[i]=(wf.sd(ispin,ikp))->occ(i);   
+            }
+	  }
+          // CW: calculate the projected occupation numbers and stored in occ_result; details --> Matrix.C 
+
+          ortho.sum_columns_square_occ(occ_result, occ_current);  
+
+          // CW: calculate the electron-hole pair, i.e., the sume of the difference between occ_current and 0K fermi_distribution
+	  if ( oncoutpe )
+	  {
+            const int nocc=(wf.sd(ispin,ikp)->c()).n();
+            cout <<    "  <occupation spin=\""<<ispin<<"\" kpoint=\""<< wf.sd(ispin,ikp)->kpoint()<< setprecision(8) << "\" n=\""<<nocc<<"\">" <<endl;
+            for (int i=0; i<nocc; i++)
+            {
+               cout << setw(12)<<setprecision(8)<< occ_result[i];
+               if(i%nocc_line==nocc_line-1) cout<<endl;
+            }
+            if ( nocc%nocc_line != 0 ) cout << endl;
+            cout << "  </occupation>" << endl;
+
+            for (int i=0; i<(wf.sd(ispin,ikp)->c()).n(); i++)
+            {
+              electron_hole_pair_count += std::max( (*s_.previous_wf).sd(ispin,ikp)->occ(i) - occ_result[i], 0.);
+            }
+            
+            cout << " Number of electron-hole pairs: " << electron_hole_pair_count << endl;
+            if(electron_hole_pair_count>cd_.nelectrons()){
+                cout<<"<ERROR>"<<endl<<"electron-hole pairs are more than the total number of electrons in the pseudo-potentials"<<endl<<"</ERROR>"<<endl;
+                exit(2);
+            }
+          }
+        }
+      }
+    }
+
+    if (wf_dyn=="ETRS" || wf_dyn=="AETRS") 
+    {
+      tmap["preupdate"].start();
+      wf_stepper->preupdate();
+      tmap["preupdate"].stop();
+    }
 
     if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*(iter + 1), s_.ctrl.tddt);
     
@@ -896,6 +960,14 @@ void EhrenSampleStepper::step(int niter)
        tmap["forktd_tot"].stop();
     }
 
+     // currently only print the time-dependent eigenvalues for ETRS and FORKTD
+    if (wf_dyn == "ETRS" || wf_dyn == "FORKTD"){
+        if (s_.ctrl.iprint > 0 && iter%s_.ctrl.iprint == 0){
+            s_.wf.diag(dwf,true);
+            s_.wf.printeig();
+        }
+    }
+
     // AS: energy renormalization is currently disabled
     // output of the renormalized energy
     // double wf_dyn_energy;
@@ -971,8 +1043,6 @@ void EhrenSampleStepper::step(int niter)
        }                  
     }
     
-    if (s_.ctrl.iprint > 0 && iter%s_.ctrl.iprint == 0)
-       s_.wf.printocc(); 
     
     // AS: for the correct output of the energy
     if ( s_.ctrl.non_selfc_energy && (wf_dyn!="SORKTD") && (wf_dyn!="FORKTD") )
@@ -1217,6 +1287,7 @@ void EhrenSampleStepper::step(int niter)
                          natoms_total += as.na(is);
                       }
                       as.get_positions(rion,true);
+                      D3vector origin(0.0,0.0,0.0);
                       os << natoms_total << " " << -0.5*(a0+a1+a2) << endl;
                       
                       // print FFT grid info
