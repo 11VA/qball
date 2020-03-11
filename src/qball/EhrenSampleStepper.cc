@@ -357,7 +357,7 @@ void EhrenSampleStepper::step(int niter)
 
     tmap["current"].start();
     currd_.update_current(ef_, dwf);
-    tmap["current"].start();
+    tmap["current"].stop();
 
     if(ef_.vp && oncoutpe){
       std::cout << "<!-- vector_potential: " << ef_.vp->value() << " -->\n";
