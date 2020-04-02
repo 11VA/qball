@@ -100,9 +100,9 @@ void CurrentDensity::update_current(EnergyFunctional & energy_functional, const 
   // TODO: Reduce total current over spin
   assert(wf_.nspin() == 1);
 	 
-  if ( wf_.context().onpe0() ){
-    std::cout << "  total_electronic_current:\t" << std::fixed << std::setw( 20 ) << std::setprecision( 12 ) << total_current[0] << '\t' << total_current[1] << '\t' << total_current[2] << std::endl;
-  }
+//  if ( wf_.context().onpe0() ){
+//    std::cout << "  total_electronic_current:\t" << std::fixed << std::setw( 20 ) << std::setprecision( 12 ) << total_current[0] << '\t' << total_current[1] << '\t' << total_current[2] << std::endl;
+//  }
 
 }
 

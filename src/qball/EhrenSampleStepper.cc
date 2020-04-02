@@ -277,6 +277,21 @@ void EhrenSampleStepper::step(int niter)
   QB_Pstart(14,scfloop);
 #endif
   tmap["total_niter"].start();
+
+  //hack
+  if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer-1), s_.ctrl.tddt);
+    currd_.update_current(ef_, dwf);
+  
+     tmap["charge"].start();
+    cd_.update_density();
+    ( ef_.hamil_cd() )->update_density();
+    tmap["charge"].stop();
+
+    tmap["efn"].start();
+    ef_.update_hamiltonian();
+    ef_.update_vhxc();
+    double energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
+    tmap["efn"].stop();
   for ( int iter = 0; iter < niter; iter++ )
   {
 
@@ -357,6 +372,7 @@ void EhrenSampleStepper::step(int niter)
 
     tmap["current"].start();
     currd_.update_current(ef_, dwf);
+    currd_.printCurr();
     tmap["current"].stop();
 
     if(ef_.vp && oncoutpe){
@@ -541,7 +557,7 @@ void EhrenSampleStepper::step(int niter)
       tmap["preupdate"].stop();
     }
 
-    if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*(iter + 1), s_.ctrl.tddt);
+    if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*s_.ctrl.mditer, s_.ctrl.tddt);
     
     tmap["ionic"].start();
     if ( atoms_move )
@@ -1500,7 +1516,7 @@ void EhrenSampleStepper::step(int niter)
 
     ef_.update_vhxc();
     const bool compute_forces = true;
-    double energy =
+     energy =
       ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
 
     // average forces over symmetric atoms
@@ -1544,7 +1560,7 @@ void EhrenSampleStepper::step(int niter)
   tmap["post_charge"].stop();
 
   ef_.update_vhxc();
-  double energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
+   energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
   
   // average forces over symmetric atoms
   if ( compute_forces && s_.symmetries.nsym() > 0) {
