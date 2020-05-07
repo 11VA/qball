@@ -289,7 +289,6 @@ void EhrenSampleStepper::step(int niter)
 
     tmap["efn"].start();
    if (ef_.vp) ef_.vector_potential_changed(compute_stress);
-    wf_stepper->preprocess();
     ef_.update_hamiltonian();
     ef_.update_vhxc();
     double energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
