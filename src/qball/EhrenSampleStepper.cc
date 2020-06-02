@@ -291,14 +291,9 @@ void EhrenSampleStepper::step(int niter)
    if (ef_.vp) ef_.vector_potential_changed(compute_stress);
     ef_.update_hamiltonian();
     ef_.update_vhxc();
-    double energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
+    double energy; // = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
     tmap["efn"].stop();
-    if (wf_dyn=="ETRS" || wf_dyn=="AETRS") 
-    {
-      tmap["preupdate"].start();
-      wf_stepper->preupdate();
-      tmap["preupdate"].stop();
-    }
+
   for ( int iter = 0; iter < niter; iter++ )
   {
 
