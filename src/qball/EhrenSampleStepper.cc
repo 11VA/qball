@@ -280,19 +280,8 @@ void EhrenSampleStepper::step(int niter)
 
   //hack
   if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer-1), s_.ctrl.tddt);
+    if (ef_.vp) ef_.vector_potential_changed(compute_stress);
     currd_.update_current(ef_, dwf);
-  
-     tmap["charge"].start();
-    cd_.update_density();
-    ( ef_.hamil_cd() )->update_density();
-    tmap["charge"].stop();
-
-    tmap["efn"].start();
-   if (ef_.vp) ef_.vector_potential_changed(compute_stress);
-    ef_.update_hamiltonian();
-    ef_.update_vhxc();
-    double energy; // = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
-    tmap["efn"].stop();
 
   for ( int iter = 0; iter < niter; iter++ )
   {
@@ -524,7 +513,7 @@ void EhrenSampleStepper::step(int niter)
 
           ortho.sum_columns_square_occ(occ_result, occ_current);  
 
-          // CW: calculate the electron-hole pair, i.e., the sume of the difference between occ_current and 0K fermi_distribution
+          // CW: calculate the electron-hole pair, i.e., the sum of the difference between occ_current and 0K fermi_distribution
 	  if ( oncoutpe )
 	  {
             const int nocc=(wf.sd(ispin,ikp)->c()).n();
@@ -1518,7 +1507,7 @@ void EhrenSampleStepper::step(int niter)
 
     ef_.update_vhxc();
     const bool compute_forces = true;
-     energy =
+    double energy =
       ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
 
     // average forces over symmetric atoms
@@ -1562,7 +1551,7 @@ void EhrenSampleStepper::step(int niter)
   tmap["post_charge"].stop();
 
   ef_.update_vhxc();
-   energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
+  double energy = ef_.energy(s_.wf, false,dwf,compute_forces,fion,compute_stress,sigma_eks);
   
   // average forces over symmetric atoms
   if ( compute_forces && s_.symmetries.nsym() > 0) {
