@@ -279,9 +279,11 @@ void EhrenSampleStepper::step(int niter)
   tmap["total_niter"].start();
 
   //hack
-  if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer-1), s_.ctrl.tddt);
-    if (ef_.vp) ef_.vector_potential_changed(compute_stress);
-    currd_.update_current(ef_, dwf);
+  if(ef_.vp) {
+    ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer-1), s_.ctrl.tddt);
+    ef_.vector_potential_changed(compute_stress);
+    currd_.update_current(ef_, dwf, false);
+  }
 
   for ( int iter = 0; iter < niter; iter++ )
   {
@@ -363,7 +365,6 @@ void EhrenSampleStepper::step(int niter)
 
     tmap["current"].start();
     currd_.update_current(ef_, dwf);
-    currd_.printCurr();
     tmap["current"].stop();
 
     if(ef_.vp && oncoutpe){
@@ -968,12 +969,12 @@ void EhrenSampleStepper::step(int niter)
     }
 
      // currently only print the time-dependent eigenvalues for ETRS and FORKTD
-    if (wf_dyn == "ETRS" || wf_dyn == "FORKTD"){
-        if (s_.ctrl.iprint > 0 && iter%s_.ctrl.iprint == 0){
-            s_.wf.diag(dwf,true);
-            s_.wf.printeig();
-        }
-    }
+//    if (wf_dyn == "ETRS" || wf_dyn == "FORKTD"){
+//        if (s_.ctrl.iprint > 0 && iter%s_.ctrl.iprint == 0){
+//            s_.wf.diag(dwf,true);
+//            s_.wf.printeig();
+//        }
+//    }
 
     // AS: energy renormalization is currently disabled
     // output of the renormalized energy
