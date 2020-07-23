@@ -1235,7 +1235,6 @@ void EhrenSampleStepper::step(int niter)
        if (s_.ctrl.mditer%s_.ctrl.savedenfreq == 0 || s_.ctrl.mditer == 1)
        {
           //string filebase = "density.";
-          string filebase = s_.ctrl.savedenfilebase;
             string filebase = s_.ctrl.savedenfilebase;
             string dirstr = filebase.substr(0, filebase.find_last_of('/'));
           if ( s_.ctxt_.mype()==0 )
