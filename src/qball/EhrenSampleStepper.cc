@@ -1236,6 +1236,25 @@ void EhrenSampleStepper::step(int niter)
        {
           //string filebase = "density.";
           string filebase = s_.ctrl.savedenfilebase;
+            string filebase = s_.ctrl.savedenfilebase;
+            string dirstr = filebase.substr(0, filebase.find_last_of('/'));
+          if ( s_.ctxt_.mype()==0 )
+          {
+             int mode = 0775;
+             struct stat statbuf;
+             int rc = stat(dirstr.c_str(), &statbuf);
+             if (rc == -1)
+             {
+                cout << "Creating directory: " << dirstr << endl;
+                rc = mkdir(dirstr.c_str(), mode);
+                rc = stat(dirstr.c_str(), &statbuf);
+             }
+             if (rc != 0 || !(statbuf.st_mode))
+             {
+                cout << "<ERROR> Can't stat directory " << dirstr << " </ERROR> " << endl;
+                MPI_Abort(MPI_COMM_WORLD,2);
+             }
+          }
           ostringstream oss;
           oss.width(7);  oss.fill('0');  oss << s_.ctrl.mditer;
           string denfilename = filebase + "." + oss.str() + ".cube";
