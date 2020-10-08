@@ -51,7 +51,7 @@ class SelfConsistentPotential
    
   private:
 
-   std::vector<std::vector<double> > v_r;
+   std::vector<std::vector<complex<double>>> v_r;
    std::vector<std::complex<double> > hamil_rhoelg;
    std::vector<std::complex<double> > rhoelg;
    double eps_;
