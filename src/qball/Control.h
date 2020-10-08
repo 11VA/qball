@@ -36,6 +36,7 @@
 
 #include <math/d3vector.h>
 #include <qball/VectorPotential.h>
+using namespace std;
 
 struct Control
 {
@@ -145,6 +146,13 @@ struct Control
   double laser_freq;
   D3vector laser_amp;
 
+  //cap 
+  bool has_cap;
+  string cap_shape;
+  int cap_axis;
+  float cap_start;
+  float cap_center;
+  vector<float> cap_params;
 };
 #endif
 

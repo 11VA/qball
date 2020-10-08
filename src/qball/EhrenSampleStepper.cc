@@ -278,8 +278,7 @@ void EhrenSampleStepper::step(int niter)
 #endif
   tmap["total_niter"].start();
 
-  //hack
-  if(ef_.vp) {
+  if(ef_.vp && s_.ctrl.mditer>0) {
     ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer-1), s_.ctrl.tddt);
     ef_.vector_potential_changed(compute_stress);
     currd_.update_current(ef_, dwf, false);
@@ -533,10 +532,10 @@ void EhrenSampleStepper::step(int niter)
             }
             
             cout << " Number of electron-hole pairs: " << electron_hole_pair_count << endl;
-            if(electron_hole_pair_count>cd_.nelectrons()){
-                cout<<"<ERROR>"<<endl<<"electron-hole pairs are more than the total number of electrons in the pseudo-potentials"<<endl<<"</ERROR>"<<endl;
-                exit(2);
-            }
+//            if(electron_hole_pair_count>cd_.nelectrons()){
+//                cout<<"<ERROR>"<<endl<<"electron-hole pairs are more than the total number of electrons in the pseudo-potentials"<<endl<<"</ERROR>"<<endl;
+//                exit(2);
+//            }
           }
         }
       }

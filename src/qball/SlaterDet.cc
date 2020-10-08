@@ -969,7 +969,7 @@ void SlaterDet::compute_density(FourierTransform& ft, double weight, std::comple
 
 ////////////////////////////////////////////////////////////////////////////////
 void SlaterDet::rs_mul_add(FourierTransform& ft, 
- const double* v, SlaterDet& sdp) const {
+ const complex<double> * v, SlaterDet& sdp) const {
 
   // transform states to real space, multiply states by v[r] in real space
   // transform back to reciprocal space and add to sdp
@@ -993,9 +993,10 @@ void SlaterDet::rs_mul_add(FourierTransform& ft,
       for ( int i = 0; i < np012loc; i++ ) {
         const double psi1 = p[ii];
         const double psi2 = p[ii+1];
-        const double vii = v[i];
-        p[ii]   = vii * psi1;
-        p[ii+1] = vii * psi2;
+        const double vii_r = v[i].real();
+        const double vii_i = v[i].imag();
+        p[ii]   = vii_r * psi1 - vii_i*psi2;
+        p[ii+1] = vii_i * psi1 + vii_r*psi2;
         ii++; ii++;
       }
       ft.forward(&tmp[0], &ctmp[0], &ctmp[mloc]);
@@ -1010,9 +1011,10 @@ void SlaterDet::rs_mul_add(FourierTransform& ft,
       int ii = 0;
       for ( int i = 0; i < np012loc; i++ ) {
         const double psi1 = p[ii];
-        const double vii = v[i];
-        p[ii]   = vii * psi1;
-        p[ii+1] = 0.0;
+        const double vii_r = v[i].real();
+        const double vii_i = v[i].imag();
+        p[ii]   = vii_r * psi1;
+        p[ii+1] = vii_i * psi1;
         ii++; ii++;
       }
       ft.forward(&tmp[0], &ctmp[0]);
@@ -1027,8 +1029,13 @@ void SlaterDet::rs_mul_add(FourierTransform& ft,
     for ( int n = 0; n < nstloc(); n++ ) {
       ft.backward(c_.cvalptr(n*mloc),&tmp[0]);
 #pragma omp parallel for
-      for ( int i = 0; i < np012loc; i++ )
-        tmp[i] *= v[i];
+      for ( int i = 0; i < np012loc; i++ ){
+          const double psi1 = tmp[i].real();
+          const double psi2 = tmp[i].imag();
+          const double vii_r = v[i].real();
+          const double vii_i = v[i].imag();
+          tmp[i] =complex<double>(vii_r * psi1 - vii_i*psi2, vii_i * psi1 + vii_r*psi2);
+      }
       ft.forward(&tmp[0], &ctmp[0]);
       int len = mloc;
       int inc1 = 1;
