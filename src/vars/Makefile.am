@@ -76,6 +76,7 @@ noinst_HEADERS =                            \
 	WfDyn.h                             \
 	WfExtrap.h                          \
 	WFPhaseRealVar.h                    \
+	CAP.h								\
 	Xc.h
 
 

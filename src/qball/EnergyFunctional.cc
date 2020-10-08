@@ -56,6 +56,7 @@ EnergyFunctional::EnergyFunctional(const Sample& s, const Wavefunction& wf, Char
   const AtomSet& atoms = s_.atoms;
   
   const bool compute_stress = ( s_.ctrl.stress == "ON" );  // if stress off, don't store dtwnl
+  const bool has_cap=s_.ctrl.has_cap;
 
   sigma_ekin.resize(6);
   sigma_econf.resize(6);
@@ -79,11 +80,15 @@ EnergyFunctional::EnergyFunctional(const Sample& s, const Wavefunction& wf, Char
   int np2v = vft->np2();
   
   v_r.resize(wf_.nspin());
+  v_real.resize(wf_.nspin());
   for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
     v_r[ispin].resize(vft->np012loc());
+    v_real[ispin].resize(vft->np012loc());
   }
+  vcap.resize(vft->np012loc());
   tmp_r.resize(vft->np012loc());
 
+  set_vcap();
   if ( s_.ctxt_.oncoutpe() ) {
     cout << "  <!-- EnergyFunctional: charge density basis: " << vbasis_->size() << " plane waves, ngloc = " << vbasis_->localsize() << " -->" << endl;
     cout << "  <!-- EnergyFunctional: np0v,np1v,np2v: " << np0v << " "
@@ -296,6 +301,50 @@ EnergyFunctional::~EnergyFunctional(void) {
 
   if(vp) delete vp;
 }
+///////////////////////////////////////////////////////////////////////////////
+void EnergyFunctional::set_vcap(){
+  // define FT's on vbasis contexts
+  vft = cd_.vft();
+  int np0v = vft->np0();
+  int np1v = vft->np1();
+  int np2v = vft->np2();
+  //hack
+  if (has_cap){
+      const int np2v = vft->np2();
+      const string shape = s_.ctrl.cap_shape;
+      const int axis=s_.ctrl.cap_axis;
+      const float s=s_.ctrl.cap_start;
+      const float m=s_.ctrl.cap_center;
+      bool sel=false;
+      if (shape=="sin2"){
+          const float eta=s_.ctrl.cap_params[0];
+          for (int ix=0;ix<vft->np0();ix++){
+              for (int iy=0;iy<vft->np1();iy++){
+                  for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
+                      sel=false;
+                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) sel=true;
+                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) sel=true;
+                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) sel=true;
+                      if (sel){
+                          int index=vft->index(ix,iy,iz-(vft->np2_first()));
+                          vcap[index]=complex<double>(0.0,-eta*pow(sin((iz*1.0/np2v-s)*M_PI/2/(m-s)),2));
+                      }
+                      else{
+                          int index=vft->index(ix,iy,iz-(vft->np2_first()));
+                          vcap[index]=complex<double>(0.0,0.0);
+                      }
+                  }
+              }
+          }
+      }
+  }
+  else{
+      for (int i=0;i<vft->np012loc();i++){
+          vcap[i]=complex<double>(0.0,0.0);
+      }
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 void EnergyFunctional::update_hamiltonian(void)
 // ewd:  updates hamil_rhoelg from hamil_cd_
@@ -381,54 +430,21 @@ void EnergyFunctional::update_vhxc(void) {
   tmap["exc"].start();
   for ( int ispin = 0; ispin < wf_.nspin(); ispin++ )
     for (int i=0; i<vft->np012loc(); i++)
-      v_r[ispin][i] = 0.0;
+      v_r[ispin][i] = complex<double>(0.0,0.0);
+      v_real[ispin][i]=0.0;
   
   //fill(v_r[ispin].begin(),v_r[ispin].end(),0.0);
 
-  xcp->update(v_r);
+  xcp->update(v_real);
   exc_ = xcp->exc();
   tmap["exc"].stop();
 
-
-  /*
-  //ewd DEBUG: calculate integral of (vxc(r)+vhart(r))*rhor(r) to compare w. PWSCF
-  double tvxc = 0.0;
-  for (int i=0; i<vft->np012loc(); i++) 
-    tvxc += -1.*v_r[0][i]*cd_.rhor[0][i];
-  double tfac = omega/(double)vft->np012loc();
-  tvxc *= tfac;
-
-  double thart = 0.0;
-  double teh = 0.0;
-  for ( int ig = 0; ig < ngloc; ig++ ) {
-    vlocal_g[ig] = fpi * rhoelg[ig] * g2i[ig];
-    teh += norm(rhoelg[ig])*g2i[ig];
-  }
-  teh *= omega*fpi*0.5;
-  cout << "EF.EHART: ehart = " << teh << endl;
-  
-  vft->backward(&vlocal_g[0],&tmp_r[0]);
-  for (int i=0; i<vft->np012loc(); i++) 
-    thart += -1.*real(tmp_r[i])*cd_.rhor[0][i];
-  thart *= tfac;
-  cout << "EF.DEBAND: " << thart+tvxc << ", thart = " << thart << ", tvxc = " << tvxc << endl;
-  */
-  //ewd DEBUG
-
-  //ewd DEBUG
-  //for (int i=0; i<vft->np012loc(); i++) 
-  //  cout << "EF.RHOR mype = " << s_.ctxt_.mype() << ", ir = " << i << ", rhor = " << cd_.rhor[0][i] << endl;
-  //for ( int ig = 0; ig < ngloc; ig++ ) 
-  //  cout << "EF.RHOG mype = " << s_.ctxt_.mype() << ", ig = " << ig << ", rhog = " << cd_.rhog[0][ig] << endl;
-
-  
-  
   // we need xc potential in reciprocal space for ultrasoft
   if (s_.ctrl.ultrasoft || s_.ctrl.nlcc) {
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
       vector<complex<double> > vrtmp(vft->np012loc());
       for (int i=0; i<vft->np012loc(); i++) 
-        vrtmp[i] = complex<double>(v_r[ispin][i], 0.0);
+        vrtmp[i] = complex<double>(v_real[ispin][i], 0.0);
 
       vft->forward(&vrtmp[0],&vxc_g[ispin][0]);    
     }
@@ -437,7 +453,7 @@ void EnergyFunctional::update_vhxc(void) {
   // update electronic enthalpy energy and potential
   epv_ = 0.0;
   if (s_.ctrl.enthalpy_pressure != 0.0) {
-    epvf->update(v_r);
+    epvf->update(v_real);
     epv_ = epvf->epv();
     const double gpa = 29421.0120;
     if (s_.ctxt_.oncoutpe()) {
@@ -935,17 +951,35 @@ void EnergyFunctional::update_vhxc(void) {
   const int size = tmp_r.size();
   if ( wf_.nspin() == 1 ) {
      for ( int i = 0; i < size; i++ ) {
-        v_r[0][i] += real(tmp_r[i]);
+        v_real[0][i]+=real(tmp_r[i]);
      }
   }
   else {
      for ( int i = 0; i < size; i++ ) {
         const double vloc = real(tmp_r[i]);
-        v_r[0][i] += vloc;
-        v_r[1][i] += vloc;
+        v_real[0][i]+=vloc;
+        v_real[1][i]+=vloc;
      }
   }
 
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ){
+        for (int ix=0;ix<vft->np012loc();ix++){
+            v_r[ispin][ix]=complex<double>(v_real[ispin][ix],vcap[ix].imag());
+        }
+    }
+
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ){
+        int cnt=0;
+        for (int ix=0;ix<vft->np012loc();ix++){
+            if (cnt<10 && abs(v_r[ispin][ix].imag())>0.00001){
+                cout<<" v_r index "<< ix <<" real "<<v_r[ispin][ix].real()<<" imag "<<v_r[ispin][ix].imag()<<endl;
+                cnt++;
+            }
+            else{
+                break;
+            }
+        }
+    }
  
   // The vdW part
   evdw_ = 0.0;
@@ -1008,7 +1042,7 @@ void EnergyFunctional::update_harris(void) {
    }
   
    // update XC energy and potential
-  xcp->update(v_r);
+  xcp->update(v_real);
   eharris_ = xcp->exc();
 
   // compute local potential energy: 
@@ -1083,7 +1117,7 @@ void EnergyFunctional::update_exc_ehart_eps(void)
 
   // update XC energy and potential
   tmap["exc"].start();
-  xcp->update_exc(v_r);
+  xcp->update_exc(v_real);
   exc_ = xcp->exc();
   tmap["exc"].stop();
 

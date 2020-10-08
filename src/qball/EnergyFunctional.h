@@ -83,6 +83,9 @@ class EnergyFunctional
       rhopst, rhogt, rhoelg, vtemp;
   vector<double> ftmp;
   
+ //yyf complex absorbing potential in real and reciprocal space 
+  vector<complex<double>> vcap;
+  bool has_cap;
   vector<vector<double> > tau0, taum, fion_esr;
   vector<double> zv_, rcps_;
   vector<int> na_;
@@ -98,12 +101,15 @@ class EnergyFunctional
   valarray<double> sigma_ekin,sigma_econf,sigma_eps,sigma_ehart,sigma_exc, sigma_vdw,
     sigma_enl, sigma_esr, sigma;
 
+  void set_vcap();
   public:
 
   VectorPotential * vp;
-  vector<vector<double> > v_r;
-  vector<vector<complex<double> > > vxc_g;
-  vector<vector<complex<double> > > veff_g;
+  //yyf change v_r to complex under complex absorbing potential 
+  vector<vector<complex<double>>> v_r;
+  vector<vector<double> > v_real;
+  vector<vector<complex<double>>> vxc_g;
+  vector<vector<complex<double>>> veff_g;
   mutable TimerMap tmap;
   
   ChargeDensity *hamil_cd() { return hamil_cd_; } ;   // AS: specifies the density used for setting up the Hamiltonian
