@@ -428,11 +428,12 @@ void EnergyFunctional::update_vhxc(void) {
   
   // update XC energy and potential
   tmap["exc"].start();
-  for ( int ispin = 0; ispin < wf_.nspin(); ispin++ )
-    for (int i=0; i<vft->np012loc(); i++)
+  for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ){
+    for (int i=0; i<vft->np012loc(); i++){
       v_r[ispin][i] = complex<double>(0.0,0.0);
       v_real[ispin][i]=0.0;
-  
+    }
+  }
   //fill(v_r[ispin].begin(),v_r[ispin].end(),0.0);
 
   xcp->update(v_real);
