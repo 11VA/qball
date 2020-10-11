@@ -153,6 +153,7 @@ struct Control
   float cap_start;
   float cap_center;
   vector<float> cap_params;
+
 };
 #endif
 

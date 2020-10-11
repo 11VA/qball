@@ -74,6 +74,11 @@ class CAP : public Var{
              ui->error("if the shape is sin2, only eta is needed. V_cap = -i*eta*sin^2((r-R)*pi/(2*dR)), for R<r<R+2dR");
              return 1;
          }
+         else if  (argv[1]=="sin2" && s->ctrl.cap_params.size()!=1){
+             ui->error(error);
+             ui->error("if the shape is delta, only W is needed. V_cap = -i*W, for R<r<R+2dR");
+             return 1;
+         }
          s->ctrl.has_cap=true;
          return 0;
     }

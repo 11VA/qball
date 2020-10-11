@@ -310,24 +310,55 @@ void EnergyFunctional::set_vcap(){
   int np2v = vft->np2();
   //hack
   if (has_cap){
-      const int np2v = vft->np2();
       const string shape = s_.ctrl.cap_shape;
       const int axis=s_.ctrl.cap_axis;
       const float s=s_.ctrl.cap_start;
       const float m=s_.ctrl.cap_center;
       bool sel=false;
+      int tmpindex=-1;
+      int npaxis=-1;
       if (shape=="sin2"){
           const float eta=s_.ctrl.cap_params[0];
           for (int ix=0;ix<vft->np0();ix++){
               for (int iy=0;iy<vft->np1();iy++){
                   for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
                       sel=false;
-                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) sel=true;
-                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) sel=true;
-                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) sel=true;
+                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmpindex=ix;npaxis=np0v;}
+                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmpindex=iy;npaxis=np1v;}
+                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmpindex=iz;npaxis=np2v;}
                       if (sel){
                           int index=vft->index(ix,iy,iz-(vft->np2_first()));
-                          vcap[index]=complex<double>(0.0,-eta*pow(sin((iz*1.0/np2v-s)*M_PI/2/(m-s)),2));
+                          vcap[index]=complex<double>(0.0,-eta*pow(sin((tmpindex*1.0/npaxis-s)*M_PI/2/(m-s)),2));
+                      }
+                      else{
+                          int index=vft->index(ix,iy,iz-(vft->np2_first()));
+                          vcap[index]=complex<double>(0.0,0.0);
+                      }
+                  }
+              }
+          }
+      }
+      else if (shape=="linear"){
+          const float w=s_.ctrl.cap_params[0];
+          for (int ix=0;ix<vft->np0();ix++){
+              for (int iy=0;iy<vft->np1();iy++){
+                  for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
+                  }
+              }
+          }
+      }
+      else if (shape=="delta"){
+          const float w=s_.ctrl.cap_params[0];
+          for (int ix=0;ix<vft->np0();ix++){
+              for (int iy=0;iy<vft->np1();iy++){
+                  for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
+                      sel=false;
+                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmpindex=ix;npaxis=np0v;}
+                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmpindex=iy;npaxis=np1v;}
+                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmpindex=iz;npaxis=np2v;}
+                      if (sel){
+                          int index=vft->index(ix,iy,iz-(vft->np2_first()));
+                          vcap[index]=complex<double>(0.0,-w);
                       }
                       else{
                           int index=vft->index(ix,iy,iz-(vft->np2_first()));
