@@ -395,32 +395,7 @@ void EnergyFunctional::set_vcap(){
 
 ////////////////////////////////////////////////////////////////////////////////
 void EnergyFunctional::update_hamiltonian(void)
-// ewd:  updates hamil_rhoelg from hamil_cd_
-{
-   const Wavefunction& wf = s_.wf;
-   const int ngloc = vbasis_->localsize();
-   const UnitCell& cell = wf.cell();
-   const double omega = cell.volume();
-   const double omega_inv = 1.0 / omega;
-
-   if ( wf.nspin() == 1 )
-   {
-      for ( int ig = 0; ig < ngloc; ig++ )
-      {
-         hamil_rhoelg[ig] = omega_inv * (*hamil_cd_).rhog[0][ig];
-      }
-   }
-   else
-   {
-      for ( int ig = 0; ig < ngloc; ig++ )
-      {
-         hamil_rhoelg[ig] = omega_inv * ( (*hamil_cd_).rhog[0][ig] + (*hamil_cd_).rhog[1][ig] );
-      }
-   }
-}
-////////////////////////////////////////////////////////////////////////////////
-void EnergyFunctional::update_hamiltonian(void)
-// ewd:  updates hamil_rhoelg from hamil_cd_
+    // ewd:  updates hamil_rhoelg from hamil_cd_
 {
    const Wavefunction& wf = s_.wf;
    const int ngloc = vbasis_->localsize();
