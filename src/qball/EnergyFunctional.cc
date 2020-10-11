@@ -315,20 +315,19 @@ void EnergyFunctional::set_vcap(){
       const float s=s_.ctrl.cap_start;
       const float m=s_.ctrl.cap_center;
       bool sel=false;
-      int tmpindex=-1;
-      int npaxis=-1;
+      float tmppos=-1.0;
       if (shape=="sin2"){
           const float eta=s_.ctrl.cap_params[0];
           for (int ix=0;ix<vft->np0();ix++){
               for (int iy=0;iy<vft->np1();iy++){
                   for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
                       sel=false;
-                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmpindex=ix;npaxis=np0v;}
-                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmpindex=iy;npaxis=np1v;}
-                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmpindex=iz;npaxis=np2v;}
+                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmppos=ix*1.0/np0v;}
+                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmppos=iy*1.0/np1v;}
+                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmppos=iz*1.0/np2v;}
                       if (sel){
                           int index=vft->index(ix,iy,iz-(vft->np2_first()));
-                          vcap[index]=complex<double>(0.0,-eta*pow(sin((tmpindex*1.0/npaxis-s)*M_PI/2/(m-s)),2));
+                          vcap[index]=complex<double>(0.0,-eta*pow(sin((tmppos-s)*M_PI/2/(m-s)),2));
                       }
                       else{
                           int index=vft->index(ix,iy,iz-(vft->np2_first()));
@@ -343,6 +342,24 @@ void EnergyFunctional::set_vcap(){
           for (int ix=0;ix<vft->np0();ix++){
               for (int iy=0;iy<vft->np1();iy++){
                   for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
+                      sel=false;
+                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmppos=ix*1.0/np0v;}
+                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmppos=iy*1.0/np1v;}
+                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmppos=iz*1.0/np2v;}
+                      if (sel){
+                          int index=vft->index(ix,iy,iz-(vft->np2_first()));
+                          if (tmppos>s && tmppos<m){
+                              vcap[index]=complex<double>(0.0,-w*abs(tmppos-s)/abs(m-s));
+                              
+                          }
+                          else if (tmppos>=m && tmppos<(2*m-s)){
+                              vcap[index]=complex<double>(0.0,-w*abs(tmppos-2*m+s)/abs(m-s));
+                          }
+                      }
+                      else{
+                          int index=vft->index(ix,iy,iz-(vft->np2_first()));
+                          vcap[index]=complex<double>(0.0,0.0);
+                      }
                   }
               }
           }
@@ -353,9 +370,9 @@ void EnergyFunctional::set_vcap(){
               for (int iy=0;iy<vft->np1();iy++){
                   for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
                       sel=false;
-                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmpindex=ix;npaxis=np0v;}
-                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmpindex=iy;npaxis=np1v;}
-                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmpindex=iz;npaxis=np2v;}
+                      if (axis==0 && ix>s*np0v && ix<np0v*(m*2-s)) {sel=true; tmppos=ix*1.0/np0v;}
+                      else if (axis==1 && iy>s*np1v && iy<np1v*(m*2-s)) {sel=true;tmppos=iy*1.0/np1v;}
+                      else if (axis==2 && iz>s*np2v && iz<np2v*(m*2-s)) {sel=true;tmppos=iz*1.0/np2v;}
                       if (sel){
                           int index=vft->index(ix,iy,iz-(vft->np2_first()));
                           vcap[index]=complex<double>(0.0,-w);
@@ -376,6 +393,31 @@ void EnergyFunctional::set_vcap(){
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void EnergyFunctional::update_hamiltonian(void)
+// ewd:  updates hamil_rhoelg from hamil_cd_
+{
+   const Wavefunction& wf = s_.wf;
+   const int ngloc = vbasis_->localsize();
+   const UnitCell& cell = wf.cell();
+   const double omega = cell.volume();
+   const double omega_inv = 1.0 / omega;
+
+   if ( wf.nspin() == 1 )
+   {
+      for ( int ig = 0; ig < ngloc; ig++ )
+      {
+         hamil_rhoelg[ig] = omega_inv * (*hamil_cd_).rhog[0][ig];
+      }
+   }
+   else
+   {
+      for ( int ig = 0; ig < ngloc; ig++ )
+      {
+         hamil_rhoelg[ig] = omega_inv * ( (*hamil_cd_).rhog[0][ig] + (*hamil_cd_).rhog[1][ig] );
+      }
+   }
+}
 ////////////////////////////////////////////////////////////////////////////////
 void EnergyFunctional::update_hamiltonian(void)
 // ewd:  updates hamil_rhoelg from hamil_cd_
