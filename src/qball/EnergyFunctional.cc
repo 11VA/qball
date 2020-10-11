@@ -999,19 +999,6 @@ void EnergyFunctional::update_vhxc(void) {
             v_r[ispin][ix]=complex<double>(v_real[ispin][ix],vcap[ix].imag());
         }
     }
-
-    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ){
-        int cnt=0;
-        for (int ix=0;ix<vft->np012loc();ix++){
-            if (cnt<10 && abs(v_r[ispin][ix].imag())>0.00001){
-                cout<<" v_r index "<< ix <<" real "<<v_r[ispin][ix].real()<<" imag "<<v_r[ispin][ix].imag()<<endl;
-                cnt++;
-            }
-            else{
-                break;
-            }
-        }
-    }
  
   // The vdW part
   evdw_ = 0.0;
