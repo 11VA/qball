@@ -54,9 +54,9 @@ class CAP : public Var{
              ui->error(error);
              return 1;
          }
-         else if (shape!="linear" && shape!="power" && shape!="sin2"){
+         else if (shape!="linear" && shape!="sin2" && shape!="delta"){
              ui->error(error);
-             ui->error("CAP shape must be in linear, power or sin2, not "+shape);
+             ui->error("CAP shape must be in linear, sin2, delta, not "+shape);
              return 1;
          }
          else if (s->ctrl.cap_axis>2){
@@ -66,7 +66,7 @@ class CAP : public Var{
          }
          if (argv[1]=="linear" && s->ctrl.cap_params.size()!=1){
              ui->error(error);
-             ui->error("if the shape is linear, only W_0 is needed. V_cap = -i*W_0*|r-R|/dR, for R<r<R+2dR");
+             ui->error("if the shape is linear, only W_0 is needed. V_cap = -i*W_0*|r-R|/dR, for R<r<R+dR and  V_cap = -i*W_0*|r-R-2dR|/dR for R+dR<r<R+2dR");
              return 1;
          }
          else if (argv[1]=="sin2" && s->ctrl.cap_params.size()!=1){
@@ -74,7 +74,7 @@ class CAP : public Var{
              ui->error("if the shape is sin2, only eta is needed. V_cap = -i*eta*sin^2((r-R)*pi/(2*dR)), for R<r<R+2dR");
              return 1;
          }
-         else if  (argv[1]=="sin2" && s->ctrl.cap_params.size()!=1){
+         else if  (argv[1]=="delta" && s->ctrl.cap_params.size()!=1){
              ui->error(error);
              ui->error("if the shape is delta, only W is needed. V_cap = -i*W, for R<r<R+2dR");
              return 1;
