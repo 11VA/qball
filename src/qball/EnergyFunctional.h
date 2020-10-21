@@ -101,7 +101,6 @@ class EnergyFunctional
   valarray<double> sigma_ekin,sigma_econf,sigma_eps,sigma_ehart,sigma_exc, sigma_vdw,
     sigma_enl, sigma_esr, sigma;
 
-  void set_vcap();
   public:
 
   VectorPotential * vp;
