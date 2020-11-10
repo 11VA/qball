@@ -49,7 +49,7 @@ class CAP : public Var{
                  s->ctrl.cap_params.push_back(atof(argv[i]));
              }
          }
-         const string error = "CAP should be used as set cap [type] [axis] [shape] [start] [center] [cap parameters..] (start and center of the cap should be in lattice unit)";
+         const string error = "CAP should be used as set cap [shape] [axis] [start] [center] [cap parameters..] (start and center of the cap should be in lattice unit)";
          if (argc<4){
              ui->error(error);
              return 1;
