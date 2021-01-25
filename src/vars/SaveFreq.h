@@ -48,14 +48,16 @@ class SaveFreq : public Var
 
   int set ( int argc, char **argv )
   {
-    if ( argc != 2 )
+    if ( argc != 2 && argc != 3)
     {
       if ( ui->oncoutpe() )
-      cout << " savefreq takes only one value" << endl;
+      cout << " savefreq takes only one or two values" << endl;
       return 1;
     }
     int v = atoi(argv[1]);
     s->ctrl.savefreq = v;
+    if (argc == 3)
+       s->ctrl.savefilebase = argv[2];
     return 0;
   }
 
@@ -69,7 +71,7 @@ class SaveFreq : public Var
      return st.str();
   }
 
-  SaveFreq(Sample *sample) : s(sample) { s->ctrl.savefreq = -1 ; }
+  SaveFreq(Sample *sample) : s(sample) { s->ctrl.savefreq = -1 ;s->ctrl.savefilebase = "md"; }
 };
 #endif
 

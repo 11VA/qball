@@ -278,7 +278,7 @@ void EhrenSampleStepper::step(int niter)
 #endif
   tmap["total_niter"].start();
 
-  if(ef_.vp && s_.ctrl.mditer>0) {
+  if(ef_.vp) {
     ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer-1), s_.ctrl.tddt);
     ef_.vector_potential_changed(compute_stress);
     currd_.update_current(ef_, dwf, false);
@@ -548,7 +548,7 @@ void EhrenSampleStepper::step(int niter)
       tmap["preupdate"].stop();
     }
 
-    if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*s_.ctrl.mditer, s_.ctrl.tddt);
+    if(ef_.vp) ef_.vp->propagate(s_.ctrl.tddt*(s_.ctrl.mditer), s_.ctrl.tddt);
     
     tmap["ionic"].start();
     if ( atoms_move )
@@ -1368,17 +1368,95 @@ void EhrenSampleStepper::step(int niter)
        }
     }
 
+    // if save wf at the end of laser pulse
+    if (ef_.vp->get_eop()==1)
+    {
+      // create output directory if it doesn't exist
+      // string dirbase = "md";
+      // string filebase = "mdchk";
+      string filebase = "kick.";
+      string dirbase = "EOP"; //filebase.substr(0, filebase.find_last_of('/'));
+      ostringstream oss;
+      // oss.width(7);  oss.fill('0');  
+      oss << setprecision(3)<<fixed<<s_.ctrl.laser_freq*27.21114;
+      string dirstr = dirbase + oss.str();
+      string format = "binary";
+      if ( s_.ctxt_.mype()==0 )
+      {
+         int mode = 0775;
+         struct stat statbuf;
+         int rc = stat(dirstr.c_str(), &statbuf);
+         if (rc == -1)
+         {
+            cout << "Creating directory: " << dirstr << endl;
+            rc = mkdir(dirstr.c_str(), mode);
+            rc = stat(dirstr.c_str(), &statbuf);
+         }
+         if (rc != 0 || !(statbuf.st_mode))
+         {
+            cout << "<ERROR> Can't stat directory " << dirstr << " </ERROR> " << endl;
+            MPI_Abort(MPI_COMM_WORLD,2);
+         }
+      }
+      if ( oncoutpe ) cout<<"save wavefunction and sys at the end of laser field in directory: "<<dirstr<<endl;
+      string filestr = dirstr + "/" + filebase;
+      s_.wf.write_states(filestr,format);
+      s_.wf.write_mditer(filestr,s_.ctrl.mditer);
+      
+      // write .sys file
+      if ( s_.ctxt_.mype()==0 )
+      {
+         string sysfilename = dirstr + "/" + "mdsave.sys";
+         ofstream os;
+         os.open(sysfilename.c_str(),ofstream::out);
+         
+         // cell info
+         string cmd("set cell ");
+         s_.wf.cell().printsys(os,cmd);
+         
+         // ref cell info, if necessary
+         if ( s_.wf.refcell().volume() != 0.0 ) {
+            string refcmd("set ref_cell ");
+            s_.wf.refcell().printsys(os,refcmd);
+         }
+         
+         // species info
+         const int nspqm_ = s_.atoms.nsp();
+         for (int i=0; i<nspqm_; i++)
+            s_.atoms.species_list[i]->printsys(os);
+         
+         const int nspmm_ = s_.atoms.nsp_mm();
+         for (int i=0; i<nspmm_; i++)
+            s_.atoms.mmspecies_list[i]->printsys(os);
+         
+         // atom coordinates and info
+         s_.atoms.printsys(os);
+         os.close();
+      }
+      
+      if (s_.ctrl.tddft_involved)
+      {
+         // write s_.hamil_wf
+         string hamwffile = filestr + "hamwf";
+         if ( s_.ctxt_.mype()==0 )
+            cout << "<!-- MDSaveCmd:  wf write finished, writing hamil_wf to " << hamwffile << "... -->" << endl;
+         s_.hamil_wf->write_states(hamwffile,format);
+      }
+    }
+
     // if savefreq variable set, checkpoint
     if (s_.ctrl.savefreq > 0)
     {
        if (s_.ctrl.savefreq == 1 || (s_.ctrl.mditer > 0 && s_.ctrl.mditer%s_.ctrl.savefreq == 0) )
        {
           // create output directory if it doesn't exist
-          string dirbase = "md.";
-          string filebase = "mdchk";
+          // string dirbase = "md";
+          // string filebase = "mdchk";
+          string filebase = s_.ctrl.savefilebase;
+          string dirstr = filebase.substr(0, filebase.find_last_of('/'));
           ostringstream oss;
           oss.width(7);  oss.fill('0');  oss << s_.ctrl.mditer;
-          string dirstr = dirbase + oss.str();
+          // string dirstr = dirbase + oss.str();
           string format = "binary";
           if ( s_.ctxt_.mype()==0 )
           {
@@ -1397,7 +1475,8 @@ void EhrenSampleStepper::step(int niter)
                 MPI_Abort(MPI_COMM_WORLD,2);
              }
           }
-          string filestr = dirstr + "/" + filebase;
+          // string filestr = dirstr + "/" + filebase;
+          string filestr = filebase;
           s_.wf.write_states(filestr,format);
           s_.wf.write_mditer(filestr,s_.ctrl.mditer);
           

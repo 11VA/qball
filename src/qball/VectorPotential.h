@@ -31,6 +31,7 @@
 #include <qball/Basis.h>
 #include "UnitCell.h"
 #include "Messages.h"
+#include "Context.h"
 
 #ifndef VECTORPOTENTIAL_H
 #define VECTORPOTENTIAL_H
@@ -150,8 +151,24 @@ public:
     induced_ += dt*velocity_ + 0.5*dt*dt*accel_;
      
     // evaluation of analytic form
-    if(norm(laser_amp_) > 0.0 && envelope_type_ == "constant") external_ = -sin(laser_freq_*time)*laser_amp_/laser_freq_;
-
+    if(norm(laser_amp_) > 0.0 && envelope_type_ == "constant" && laser_freq_>0.0){ 
+         double laser_periods=envelope_center_;
+       if ( laser_periods == 0) external_ = -sin(laser_freq_*time)*laser_amp_/laser_freq_;
+       else if ( laser_periods >0){
+           double Tend=laser_periods*(4.136/(laser_freq_*27.2114))*41.341374575751; // atomic time
+           cout<<"time "<<time<<"Tend "<<Tend<<endl;
+           if (time<Tend){
+               external_ = -sin(laser_freq_*time)*laser_amp_/laser_freq_;
+               if ((time+dt)>Tend){
+                   eop_=1;
+               }
+           }
+           else{
+               eop_=0;
+               external_=D3vector (0,0,0);
+           }
+       }
+    }
     // Static external field
     if(norm(laser_amp_) > 0.0 && envelope_type_ == "constant" && laser_freq_ == 0.0) external_ = -laser_amp_ * time;
     // Numerical integration for guassian d(A/c)/dt = - E = - Amp * Normalization_factor * cos(wt) * Gaussing(center,width)
@@ -159,8 +176,11 @@ public:
 
     value_ = induced_ + external_;
     value2_ = norm(value_);
+      cout << " freq= " << laser_freq_ <<" amp= "<<laser_amp_<<" envelope_center "<<envelope_center_<<" envelope_width "<<envelope_width_<<endl;
   }
-
+  int get_eop(){
+      return eop_;
+  }
   
 private:
   Dynamics dynamics_;
@@ -177,7 +197,7 @@ private:
   string envelope_type_;
   double envelope_width_;
   double envelope_center_;
-  
+  int eop_=0;
 };
 #endif
 

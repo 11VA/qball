@@ -47,8 +47,9 @@ class LaserEnvelope : public Var
   char const*name ( void ) const { return "laser_envelope"; };
   
   int set ( int argc, char **argv ) {
-    if ( argc == 2 ) {
+    if ( argc < 4 ) {
       s->ctrl.envelope_type = argv[1];
+      if (argc == 3) s->ctrl.envelope_center = atoi(argv[2]);
 
       if ( s->ctrl.envelope_type != "constant" ){ 
         ui->error(argv[1]);
