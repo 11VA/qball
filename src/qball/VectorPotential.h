@@ -156,7 +156,6 @@ public:
        if ( laser_periods == 0) external_ = -sin(laser_freq_*time)*laser_amp_/laser_freq_;
        else if ( laser_periods >0){
            double Tend=laser_periods*(4.136/(laser_freq_*27.2114))*41.341374575751; // atomic time
-           cout<<"time "<<time<<"Tend "<<Tend<<endl;
            if (time<Tend){
                external_ = -sin(laser_freq_*time)*laser_amp_/laser_freq_;
                if ((time+dt)>Tend){
@@ -176,7 +175,6 @@ public:
 
     value_ = induced_ + external_;
     value2_ = norm(value_);
-      cout << " freq= " << laser_freq_ <<" amp= "<<laser_amp_<<" envelope_center "<<envelope_center_<<" envelope_width "<<envelope_width_<<endl;
   }
   int get_eop(){
       return eop_;
