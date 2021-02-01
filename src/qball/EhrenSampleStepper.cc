@@ -284,6 +284,97 @@ void EhrenSampleStepper::step(int niter)
     currd_.update_current(ef_, dwf, false);
   }
 
+  //hack pes_flux
+  if ( s_.ctxt_.oncoutpe() )
+    cout << "right before start"<<endl;
+    const bool calc_flux=false;
+  //if(calc_flux){
+    FourierTransform* vft = cd_.vft();
+    valarray<double> surfnormal={0,0,1};
+    surfnormal*=0.1913988*0.1913988;
+    float dk=0.1;
+    vector<valarray<double>> indexAll;
+    const float st=s_.ctrl.cap_start;
+    const float m=s_.ctrl.cap_center;
+    //get surface point
+    const float dsurf=0.1;
+    for (int ix=0;ix<vft->np0();ix++){
+        for (int iy=0;iy<vft->np1();iy++){
+            // for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
+            for (int iz=0;iz<vft->np2();iz++){
+                if(iz==floor((st-dsurf)*vft->np2()-0.0001)){
+                    valarray<double> tmpindex(3);
+                    tmpindex[0]=ix;
+                    tmpindex[1]=iy;
+                    tmpindex[2]=iz;
+                    indexAll.push_back(tmpindex);
+                }
+                else if (iz==ceil((m*2-st+dsurf)*vft->np2()+0.0001)){
+                    valarray<double> tmpindex(3);
+                    tmpindex[0]=ix;
+                    tmpindex[1]=iy;
+                    tmpindex[2]=iz;
+                    indexAll.push_back(tmpindex);
+                }
+            }
+        }
+    }
+  if ( s_.ctxt_.oncoutpe() )
+    cout << "after surface point. Total number of surface point: "<<indexAll.size()<<endl;
+    //generate correct point mesh. How?
+    vector<valarray<double>> pmesh; //generate kpts in first Brillouin zone
+    for (double i = -0.5;i<=0.5;i+=dk){
+        for (double j=-0.5;j<=0.5;j+=dk){
+                valarray<double> tmp(3); //generate kpoints only along the periodic direction
+                tmp[0]=i;
+                tmp[1]=j;
+                tmp[2]=0;
+                pmesh.push_back(tmp);
+              //  if ( s_.ctxt_.oncoutpe() ) cout<<i<<" "<<j<<" "<<k<<endl;
+        }
+    }
+  if (s_.ctxt_.oncoutpe()) cout << "after pmesh"<<endl;
+    //p+g
+    //fill the non-periodic direction
+
+    //calculate the coefficient of Volkov basis
+    vector<vector<complex<double>>> Volkov_coef; // planewave coeffiecient of Volkov basis
+    for (int isp=0;isp<indexAll.size();isp++){ //loop over surface points
+        vector<complex<double>> coef_sp;
+        for (int ip=0;ip<pmesh.size();ip++){ //loop over the p-mesh
+            complex<double> p_dot_r(0,0);
+            p_dot_r=(pmesh[ip]*indexAll[isp]).sum();
+            complex<double> tmp_coef;
+            tmp_coef=exp(-complex<double>(0,1)*p_dot_r)/pow(2*M_PI,3/2.0);
+            coef_sp.push_back(tmp_coef);
+        }
+        Volkov_coef.push_back(coef_sp);
+    }
+  if (s_.ctxt_.oncoutpe()) cout << "after Volkov_coef"<<endl;
+  
+    double time=dt*(s_.ctrl.mditer-1);
+    valarray<complex<double>> Volkov_ph(pmesh.size()); // calculate the phase factor of Volkov state
+    for (int ip=0;ip<pmesh.size();ip++){
+        complex<double> previous_ph(1,0);
+        for (double it=0;it<=time;it+=dt){
+            valarray<double>tmpkpt(3);
+            ef_.vp->propagate(it, s_.ctrl.tddt);
+            D3vector vecA=ef_.vp->value();
+            tmpkpt[0]=pmesh[ip][0]-vecA[0];
+            tmpkpt[1]=pmesh[ip][1]-vecA[1];
+            tmpkpt[2]=pmesh[ip][2]-vecA[2];
+            double tmp=(tmpkpt*tmpkpt).sum();
+            previous_ph=previous_ph*exp(complex<double>(0,1)*tmp*dt/2.0);
+        }
+        Volkov_ph[ip]=previous_ph;
+    }
+    if (s_.ctxt_.oncoutpe()) cout << "after Volkov_ph"<<endl;
+    // calculate flux along the surface normal
+    valarray<complex<double>> spectramp_n(complex<double>(0,0),wf.sd(0,0)->nstloc());
+    valarray<valarray<complex<double>>> spectramp(spectramp_n,pmesh.size());
+  //}
+  //end hack 
+  
   for ( int iter = 0; iter < niter; iter++ )
   {
 
@@ -369,6 +460,54 @@ void EhrenSampleStepper::step(int niter)
     if(ef_.vp && oncoutpe){
       std::cout << "<!-- vector_potential: " << ef_.vp->value() << " -->\n";
     }
+//hack pes_flux
+//     if(calc_flux){
+        D3vector vecA=ef_.vp->value();
+        if(ef_.vp && oncoutpe) cout<<"right before p-A/c"<<endl;
+        for (int ip=0;ip<pmesh.size();ip++){
+            valarray<double>tmpkpt(3);
+            tmpkpt[0]=pmesh[ip][0]-vecA[0];
+            tmpkpt[1]=pmesh[ip][1]-vecA[1];
+            tmpkpt[2]=pmesh[ip][2]-vecA[2];
+            double tmp=(tmpkpt*tmpkpt).sum();
+            Volkov_ph[ip]=Volkov_ph[ip]*exp(complex<double>(0,1)*tmp*dt/2.0);
+        }
+        //gradient of KS wavefunction in real space
+        if(ef_.vp && oncoutpe) cout<<"right before gkswf"<<endl;
+        FourierTransform* ft = cd_.vft();
+        valarray<complex<double>>gkswfr_dir_n(indexAll.size());
+        valarray<valarray<complex<double>>>gkswfr_dir(gkswfr_dir_n,wf.sd(0,0)->nstloc());
+        valarray<valarray<valarray<complex<double>>>> gkswfr(gkswfr_dir,3);
+        valarray<complex<double>> kswfr_n(indexAll.size());
+        valarray<valarray<complex<double>>> kswfr(kswfr_n,wf.sd(0,0)->nstloc());
+        //Wavefunction tmpgwf(s_.wf);
+        //wf.wfr(ft, tmpgwf,gkswfr,kswfr,indexAll);
+        currd_.twfr(gkswfr,kswfr, indexAll);
+        // calculate flux along the surface normal
+        if(oncoutpe) cout<<"right before flux"<<endl;
+        for (int isp=0;isp<indexAll.size();isp++){ //loop over surface points
+            for (int idir=0;idir<3;idir++){
+                for (int ip=0;ip<pmesh.size();ip++){ //loop over the p-mesh
+                    valarray<complex<double>> Jk_isp_idir_ip(complex<double>(0,0),wf.sd(0,0)->nstloc());
+                    for ( int n = 0; n < wf.sd(0,0)->nstloc(); n++ ){//loop over state ispin=0, ikpt=0
+                        complex<double> Jktmp(0,0);
+                        Jktmp=Volkov_ph[ip]*kswfr[n][isp]*(2*vecA[idir]-pmesh[ip][idir])+gkswfr[idir][n][isp]*complex<double>(0,1);
+                        Jk_isp_idir_ip[n]=(Jk_isp_idir_ip[n]+Jktmp)*Volkov_coef[isp][ip];
+                    }
+                    spectramp[ip]=spectramp[ip]+Jk_isp_idir_ip*complex<double>(surfnormal[idir]/2.0,0);
+                }
+            }
+        }
+        //print the pmesh and spectrum amplitude
+        for(int ip=0;ip<pmesh.size();ip++){
+            cout<<"b(p) "<<setprecision(3)<<fixed<<pmesh[ip][0]<<" "<<pmesh[ip][1]<<" "<<pmesh[ip][2]<<" ";
+            for ( int n = 0; n < wf.sd(0,0)->nstloc(); n++ ){
+               cout<<setprecision(5)<<fixed<<norm(spectramp[ip][n])<<" ";
+            }
+            cout<<endl;
+        }
+     //}
+//end hack
     
     // average forces over symmetric atoms
     if ( compute_forces && s_.symmetries.nsym() > 0) {

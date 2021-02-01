@@ -176,6 +176,8 @@ class SlaterDet {
 
   void info(ostream& os);
   void print_memory(ostream&os, int kmult, int kmultloc, double& totsum, double& locsum) const;
+  void tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<valarray<valarray<complex<double>>>>& gkswfr,valarray<valarray<complex<double>>>& kswfr,const vector<valarray<double>>& indexAll) const;
+  void tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<valarray<valarray<complex<double>>>>& gkswfr,const vector<valarray<double>>& indexAll,int idir) const;
 };
 ostream& operator << ( ostream& os, SlaterDet& sd );
 

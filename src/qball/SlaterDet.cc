@@ -968,6 +968,55 @@ void SlaterDet::compute_density(FourierTransform& ft, double weight, std::comple
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void SlaterDet::tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<valarray<valarray<complex<double>>>>& gkswfr,valarray<valarray<complex<double>>>& kswfr,const vector<valarray<double>>& indexAll) const {
+  assert(occ_.size() == c_.n());
+  assert(basis_->cell().volume() > 0.0);
+//  const double prefac = weight / basis_->cell().volume();  // weight = kpoint weight/total weightsum
+  const int np012loc = ft.np012loc();
+  vector<complex<double> > tmp1(ft.np012loc());
+  vector<complex<double> > tmp2(ft.np012loc());
+  
+  // only one transform at a time
+  for ( int lj=0; lj < c_.nblocks(); lj++ ){
+      for ( int jj=0; jj < c_.nbs(lj); jj++ ){
+	  // global state index
+	  const int nn = c_.j(lj,jj);
+	  const int norig = lj*c_.nb()+jj;
+      ft.backward(c_.cvalptr(norig*c_.mloc()), &tmp1[0]);
+      ft.backward(sd2.c_.cvalptr(norig*c_.mloc()), &tmp2[0]);
+      for (int isp=0 ;isp<indexAll.size();isp++){
+          int index = ft.index((int)indexAll[isp][0],(int)indexAll[isp][1],(int)indexAll[isp][2]);
+          kswfr[nn][isp]=tmp1[index];
+          gkswfr[0][nn][isp]=tmp2[index];
+      }
+    }
+  }
+}
+////////////////////////////////////////////////////////////////////////////////
+void SlaterDet::tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<valarray<valarray<complex<double>>>>& gkswfr,const vector<valarray<double>>& indexAll,int idir) const {
+  assert(occ_.size() == c_.n());
+  assert(basis_->cell().volume() > 0.0);
+//  const double prefac = weight / basis_->cell().volume();  // weight = kpoint weight/total weightsum
+  const int np012loc = ft.np012loc();
+  vector<complex<double> > tmp2(ft.np012loc());
+  
+  // only one transform at a time
+  for ( int lj=0; lj < c_.nblocks(); lj++ ){
+      for ( int jj=0; jj < c_.nbs(lj); jj++ ){
+	  // global state index
+	  const int nn = c_.j(lj,jj);
+	  const int norig = lj*c_.nb()+jj;
+      ft.backward(sd2.c_.cvalptr(norig*c_.mloc()), &tmp2[0]);
+      for (int isp=0 ;isp<indexAll.size();isp++){
+          //  cout<<indexAll[isp][0]<<" "<<indexAll[isp][1]<<" "<<indexAll[isp][2]<<endl;
+          int index = ft.index((int)indexAll[isp][0],(int)indexAll[isp][1],(int)indexAll[isp][2]);
+          //  cout<<index<<" "<<tgwfr.size()<<endl;
+          gkswfr[idir][nn][isp]=tmp2[index];
+      }
+    }
+  }
+}
+////////////////////////////////////////////////////////////////////////////////
 void SlaterDet::rs_mul_add(FourierTransform& ft, 
  const complex<double> * v, SlaterDet& sdp) const {
 

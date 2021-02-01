@@ -106,6 +106,28 @@ void CurrentDensity::update_current(EnergyFunctional & energy_functional, const 
   }
 }
 
+////////////////////////////////////////////////////////////////////
+void CurrentDensity::twfr(valarray<valarray<valarray<complex<double>>>>& gkswfr,valarray<valarray<complex<double>>>& kswfr,const vector<valarray<double>>& indexAll) const{
+  Wavefunction gwf(wf_);
+  for(int idir = 0; idir < 3; idir++){
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++){
+      for ( int ikp = 0; ikp < wf_.nkp(); ikp++ ){
+
+        const int ngwloc = wf_.sd(ispin, ikp)->basis().localsize();
+        const int mloc = wf_.sd(ispin, ikp)->c().mloc();
+
+        for ( int n = 0; n < wf_.sd(ispin, ikp)->nstloc(); n++ ){
+          for ( int ig = 0; ig < ngwloc; ig++ ){
+            gwf.sd(ispin, ikp)->c()[ig + mloc*n] = std::complex<double>(0.0, 1.0)*wf_.sd(ispin, ikp)->basis().kpgx_ptr(idir)[ig]*wf_.sd(ispin, ikp)->c()[ig + mloc*n];
+          }
+        }
+        if (idir==0) wf_.sd(ispin, ikp)->tmpwfr(*ft(ispin, ikp), *gwf.sd(ispin, ikp),gkswfr,kswfr,indexAll);
+        else wf_.sd(ispin, ikp)->tmpwfr(*ft(ispin, ikp), *gwf.sd(ispin, ikp),gkswfr,indexAll,idir);
+      }
+    }
+  }
+}
+////////////////////////////////////////////////////////////////////
 void CurrentDensity::plot(const Sample * s, const std::string & filename){
   using namespace std;
 
