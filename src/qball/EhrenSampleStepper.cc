@@ -296,49 +296,47 @@ void EhrenSampleStepper::step(int niter)
     const int np0 = vft->np0();
     const int np1 = vft->np1();
     const int np2 = vft->np2();
+    const valarray<double> nparray={(double)np0,(double)np1,(double)np2};
     D3vector dft0 = a0/(double)np0;
     D3vector dft1 = a1/(double)np1;
     D3vector dft2 = a2/(double)np2;
     vector<valarray<double>> surfnormal;
-//    surfnormal*=0.1913988*0.1913988;
     float dk=0.1;
     vector<valarray<double>> indexAll;
     const float st=s_.ctrl.cap_start;
     const float m=s_.ctrl.cap_center;
     //get surface point
     const float dsurf=0.1;
-    for (int ix=0;ix<vft->np0();ix++){
-        for (int iy=0;iy<vft->np1();iy++){
-            // for (int iz=vft->np2_first();iz<vft->np2_first()+vft->np2_loc();iz++){
-            for (int iz=0;iz<vft->np2();iz++){
-                if(iz==floor((st-dsurf)*vft->np2()-0.0001)){
+    for (int ix=0;ix<np0;ix++){
+        for (int iy=0;iy<np1;iy++){
+            for (int iz=0;iz<np2;iz++){
+                if(iz==floor((st-dsurf)*np2-0.0001)){
                     valarray<double> tmpindex(3);
                     tmpindex[0]=ix;
                     tmpindex[1]=iy;
                     tmpindex[2]=iz;
                     indexAll.push_back(tmpindex);
                     valarray<double>tmpsurf={0,0,1};
-                    surfnormal.push_back(tmpsurf*length(dft0)*length(dft1));
+                    surfnormal.push_back(tmpsurf*length(cross(dft0,dft1)));
                 }
-                else if (iz==ceil((m*2-st+dsurf)*vft->np2()+0.0001)){
+                else if (iz==ceil((m*2-st+dsurf)*np2+0.0001)){
                     valarray<double> tmpindex(3);
                     tmpindex[0]=ix;
                     tmpindex[1]=iy;
                     tmpindex[2]=iz;
                     indexAll.push_back(tmpindex);
                     valarray<double>tmpsurf={0,0,-1};
-                    surfnormal.push_back(tmpsurf*length(dft0)*length(dft1));
+                    surfnormal.push_back(tmpsurf*length(cross(dft0,dft1)));
                 }
             }
         }
     }
-  if ( s_.ctxt_.oncoutpe() )
-    cout << "after surface point. Total number of surface point: "<<indexAll.size()<<endl;
+  if ( s_.ctxt_.oncoutpe() ) cout << "after surface point. Total number of surface point: "<<indexAll.size()<<endl;
     //generate correct point mesh. How?
     vector<valarray<double>> pmesh; //generate kpts in first Brillouin zone
     for (double i = -0.5;i<=0.5;i+=dk){
         for (double j=-0.5;j<=0.5;j+=dk){
-            for (double k=-10.5;k<=10.5;k+=dk){
+            for (double k=-10.5;k<=10.5;k+=1.5){
                 valarray<double> tmp(3); //generate kpoints only along the periodic direction
                 tmp[0]=i;
                 tmp[1]=j;
@@ -358,7 +356,7 @@ void EhrenSampleStepper::step(int niter)
         vector<complex<double>> coef_sp;
         for (int ip=0;ip<pmesh.size();ip++){ //loop over the p-mesh
             complex<double> p_dot_r(0,0);
-            p_dot_r=(pmesh[ip]*indexAll[isp]).sum();
+            p_dot_r=(pmesh[ip]*indexAll[isp]/nparray).sum();
             complex<double> tmp_coef;
             tmp_coef=exp(-complex<double>(0,1)*p_dot_r)/pow(2*M_PI,3/2.0);
             coef_sp.push_back(tmp_coef);

@@ -973,9 +973,9 @@ void SlaterDet::tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<vala
   assert(basis_->cell().volume() > 0.0);
 //  const double prefac = weight / basis_->cell().volume();  // weight = kpoint weight/total weightsum
   const int np012loc = ft.np012loc();
+  const int np2f=ft.np2_first();
   vector<complex<double> > tmp1(ft.np012loc());
   vector<complex<double> > tmp2(ft.np012loc());
-  
   // only one transform at a time
   for ( int lj=0; lj < c_.nblocks(); lj++ ){
       for ( int jj=0; jj < c_.nbs(lj); jj++ ){
@@ -985,7 +985,7 @@ void SlaterDet::tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<vala
       ft.backward(c_.cvalptr(norig*c_.mloc()), &tmp1[0]);
       ft.backward(sd2.c_.cvalptr(norig*c_.mloc()), &tmp2[0]);
       for (int isp=0 ;isp<indexAll.size();isp++){
-          int index = ft.index((int)indexAll[isp][0],(int)indexAll[isp][1],(int)indexAll[isp][2]);
+          int index = ft.index((int)indexAll[isp][0],(int)indexAll[isp][1],(int)indexAll[isp][2]-np2f);
           kswfr[nn][isp]=tmp1[index];
           gkswfr[0][nn][isp]=tmp2[index];
       }
@@ -998,8 +998,8 @@ void SlaterDet::tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<vala
   assert(basis_->cell().volume() > 0.0);
 //  const double prefac = weight / basis_->cell().volume();  // weight = kpoint weight/total weightsum
   const int np012loc = ft.np012loc();
+  const int np2f=ft.np2_first();
   vector<complex<double> > tmp2(ft.np012loc());
-  
   // only one transform at a time
   for ( int lj=0; lj < c_.nblocks(); lj++ ){
       for ( int jj=0; jj < c_.nbs(lj); jj++ ){
@@ -1009,7 +1009,7 @@ void SlaterDet::tmpwfr(FourierTransform& ft, const SlaterDet & sd2,valarray<vala
       ft.backward(sd2.c_.cvalptr(norig*c_.mloc()), &tmp2[0]);
       for (int isp=0 ;isp<indexAll.size();isp++){
           //  cout<<indexAll[isp][0]<<" "<<indexAll[isp][1]<<" "<<indexAll[isp][2]<<endl;
-          int index = ft.index((int)indexAll[isp][0],(int)indexAll[isp][1],(int)indexAll[isp][2]);
+          int index = ft.index((int)indexAll[isp][0],(int)indexAll[isp][1],(int)indexAll[isp][2]-np2f);
           //  cout<<index<<" "<<tgwfr.size()<<endl;
           gkswfr[idir][nn][isp]=tmp2[index];
       }

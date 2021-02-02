@@ -170,6 +170,13 @@ class D3vector
     return a / length( a );
   }
 
+  friend D3vector cross(const D3vector& a, const D3vector& b){
+      double i = a.y*b.z-a.z*b.y;
+      double j = a.z*b.x-a.x*b.z;
+      double k = a.x*b.y-a.y*b.x;
+      return D3vector(i,j,k);
+  }
+
   friend std::ostream& operator << ( std::ostream& os, const D3vector& v )
   {
     os << v.x << " " << v.y << " " << v.z;
