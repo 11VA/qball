@@ -3,7 +3,7 @@ This version is built on the [vector\_potential](https://github.com/LLNL/qball/t
 
 ## Installing
 
-To compile Qbox:
+To compile Qball:
 
 1. Generate the configure script (you need autoconf and automake). 
 
