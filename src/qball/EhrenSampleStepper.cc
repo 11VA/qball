@@ -290,8 +290,17 @@ void EhrenSampleStepper::step(int niter)
     const bool calc_flux=false;
   //if(calc_flux){
     FourierTransform* vft = cd_.vft();
-    valarray<double> surfnormal={0,0,1};
-    surfnormal*=0.1913988*0.1913988;
+    D3vector a0 = s_.wf.cell().a(0);
+    D3vector a1 = s_.wf.cell().a(1);
+    D3vector a2 = s_.wf.cell().a(2);
+    const int np0 = vft->np0();
+    const int np1 = vft->np1();
+    const int np2 = vft->np2();
+    D3vector dft0 = a0/(double)np0;
+    D3vector dft1 = a1/(double)np1;
+    D3vector dft2 = a2/(double)np2;
+    vector<valarray<double>> surfnormal;
+//    surfnormal*=0.1913988*0.1913988;
     float dk=0.1;
     vector<valarray<double>> indexAll;
     const float st=s_.ctrl.cap_start;
@@ -308,6 +317,8 @@ void EhrenSampleStepper::step(int niter)
                     tmpindex[1]=iy;
                     tmpindex[2]=iz;
                     indexAll.push_back(tmpindex);
+                    valarray<double>tmpsurf={0,0,1};
+                    surfnormal.push_back(tmpsurf*length(dft0)*length(dft1));
                 }
                 else if (iz==ceil((m*2-st+dsurf)*vft->np2()+0.0001)){
                     valarray<double> tmpindex(3);
@@ -315,6 +326,8 @@ void EhrenSampleStepper::step(int niter)
                     tmpindex[1]=iy;
                     tmpindex[2]=iz;
                     indexAll.push_back(tmpindex);
+                    valarray<double>tmpsurf={0,0,-1};
+                    surfnormal.push_back(tmpsurf*length(dft0)*length(dft1));
                 }
             }
         }
@@ -325,12 +338,14 @@ void EhrenSampleStepper::step(int niter)
     vector<valarray<double>> pmesh; //generate kpts in first Brillouin zone
     for (double i = -0.5;i<=0.5;i+=dk){
         for (double j=-0.5;j<=0.5;j+=dk){
+            for (double k=-10.5;k<=10.5;k+=dk){
                 valarray<double> tmp(3); //generate kpoints only along the periodic direction
                 tmp[0]=i;
                 tmp[1]=j;
-                tmp[2]=0;
+                tmp[2]=k;
                 pmesh.push_back(tmp);
               //  if ( s_.ctxt_.oncoutpe() ) cout<<i<<" "<<j<<" "<<k<<endl;
+            }
         }
     }
   if (s_.ctxt_.oncoutpe()) cout << "after pmesh"<<endl;
@@ -494,7 +509,7 @@ void EhrenSampleStepper::step(int niter)
                         Jktmp=Volkov_ph[ip]*kswfr[n][isp]*(2*vecA[idir]-pmesh[ip][idir])+gkswfr[idir][n][isp]*complex<double>(0,1);
                         Jk_isp_idir_ip[n]=(Jk_isp_idir_ip[n]+Jktmp)*Volkov_coef[isp][ip];
                     }
-                    spectramp[ip]=spectramp[ip]+Jk_isp_idir_ip*complex<double>(surfnormal[idir]/2.0,0);
+                    spectramp[ip]=spectramp[ip]+Jk_isp_idir_ip*complex<double>(surfnormal[isp][idir]/2.0,0);
                 }
             }
         }
