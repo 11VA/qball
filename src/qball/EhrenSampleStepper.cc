@@ -306,11 +306,10 @@ void EhrenSampleStepper::step(int niter)
     const float st=s_.ctrl.cap_start;
     const float m=s_.ctrl.cap_center;
     //get surface point
-    const float dsurf=0.1;
     for (int ix=0;ix<np0;ix++){
         for (int iy=0;iy<np1;iy++){
             for (int iz=0;iz<np2;iz++){
-                if(iz==floor((st-dsurf)*np2-0.0001)){
+                if(iz==floor((st)*np2-0.0001)){
                     valarray<double> tmpindex(3);
                     tmpindex[0]=ix;
                     tmpindex[1]=iy;
@@ -319,7 +318,7 @@ void EhrenSampleStepper::step(int niter)
                     valarray<double>tmpsurf={0,0,1};
                     surfnormal.push_back(tmpsurf*length(cross(dft0,dft1)));
                 }
-                else if (iz==ceil((m*2-st+dsurf)*np2+0.0001)){
+                else if (iz==ceil((m*2-st)*np2+0.0001)){
                     valarray<double> tmpindex(3);
                     tmpindex[0]=ix;
                     tmpindex[1]=iy;
@@ -347,21 +346,22 @@ void EhrenSampleStepper::step(int niter)
         }
     }
   if (s_.ctxt_.oncoutpe()) cout << "after pmesh"<<endl;
-    //p+g
+    //p+g?
     //fill the non-periodic direction
 
     //calculate the coefficient of Volkov basis
-    vector<vector<complex<double>>> Volkov_coef; // planewave coeffiecient of Volkov basis
+    valarray<complex<double>>coef_sp(complex<double>(0,0),pmesh.size());
+    valarray<valarray<complex<double>>> Volkov_coef(coef_sp,indexAll.size()); // planewave coeffiecient of Volkov basis
     for (int isp=0;isp<indexAll.size();isp++){ //loop over surface points
-        vector<complex<double>> coef_sp;
+        coef_sp=0;
         for (int ip=0;ip<pmesh.size();ip++){ //loop over the p-mesh
             complex<double> p_dot_r(0,0);
             p_dot_r=(pmesh[ip]*indexAll[isp]/nparray).sum();
             complex<double> tmp_coef;
             tmp_coef=exp(-complex<double>(0,1)*p_dot_r)/pow(2*M_PI,3/2.0);
-            coef_sp.push_back(tmp_coef);
+            coef_sp[ip]=tmp_coef;
         }
-        Volkov_coef.push_back(coef_sp);
+        Volkov_coef[isp]=coef_sp;
     }
   if (s_.ctxt_.oncoutpe()) cout << "after Volkov_coef"<<endl;
   
@@ -383,8 +383,10 @@ void EhrenSampleStepper::step(int niter)
     }
     if (s_.ctxt_.oncoutpe()) cout << "after Volkov_ph"<<endl;
     // calculate flux along the surface normal
-    valarray<complex<double>> spectramp_n(complex<double>(0,0),wf.sd(0,0)->nstloc());
-    valarray<valarray<complex<double>>> spectramp(spectramp_n,pmesh.size());
+    valarray<complex<double>> Jk_isp_idir_ip(complex<double>(0,0),wf.sd(0,0)->nstloc());
+    valarray<valarray<complex<double>>> Jk_isp_idir(Jk_isp_idir_ip,pmesh.size());
+    valarray<valarray<valarray<complex<double>>>> Jk_isp(Jk_isp_idir,3);
+    valarray<valarray<valarray<valarray<complex<double>>>>> Jk(Jk_isp,indexAll.size());
   //}
   //end hack 
   
@@ -497,17 +499,17 @@ void EhrenSampleStepper::step(int niter)
         //wf.wfr(ft, tmpgwf,gkswfr,kswfr,indexAll);
         currd_.twfr(gkswfr,kswfr, indexAll);
         // calculate flux along the surface normal
+        valarray<complex<double>> spectramp_n(complex<double>(0,0),wf.sd(0,0)->nstloc());
+        valarray<valarray<complex<double>>> spectramp(spectramp_n,pmesh.size());
         if(oncoutpe) cout<<"right before flux"<<endl;
         for (int isp=0;isp<indexAll.size();isp++){ //loop over surface points
             for (int idir=0;idir<3;idir++){
                 for (int ip=0;ip<pmesh.size();ip++){ //loop over the p-mesh
-                    valarray<complex<double>> Jk_isp_idir_ip(complex<double>(0,0),wf.sd(0,0)->nstloc());
                     for ( int n = 0; n < wf.sd(0,0)->nstloc(); n++ ){//loop over state ispin=0, ikpt=0
-                        complex<double> Jktmp(0,0);
-                        Jktmp=Volkov_ph[ip]*kswfr[n][isp]*(2*vecA[idir]-pmesh[ip][idir])+gkswfr[idir][n][isp]*complex<double>(0,1);
-                        Jk_isp_idir_ip[n]=(Jk_isp_idir_ip[n]+Jktmp)*Volkov_coef[isp][ip];
+                        Jk[isp][idir][ip][n]=Jk[isp][idir][ip][n]+Volkov_ph[ip]*(kswfr[n][isp]*(2*vecA[idir]-pmesh[ip][idir])+gkswfr[idir][n][isp]*complex<double>(0,1));
                     }
-                    spectramp[ip]=spectramp[ip]+Jk_isp_idir_ip*complex<double>(surfnormal[isp][idir]/2.0,0);
+                    Jk[isp][idir][ip]*=Volkov_coef[isp][ip];
+                    spectramp[ip]=spectramp[ip]+Jk[isp][idir][ip]*complex<double>(surfnormal[isp][idir]/2.0,0);
                 }
             }
         }
