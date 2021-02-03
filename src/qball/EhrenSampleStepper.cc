@@ -301,7 +301,7 @@ void EhrenSampleStepper::step(int niter)
     D3vector dft1 = a1/(double)np1;
     D3vector dft2 = a2/(double)np2;
     vector<valarray<double>> surfnormal;
-    float dk=0.1;
+    float dk=0.01;
     vector<valarray<double>> indexAll;
     const float st=s_.ctrl.cap_start;
     const float m=s_.ctrl.cap_center;
@@ -316,7 +316,7 @@ void EhrenSampleStepper::step(int niter)
                     tmpindex[2]=iz;
                     indexAll.push_back(tmpindex);
                     valarray<double>tmpsurf={0,0,1};
-                    surfnormal.push_back(tmpsurf*length(cross(dft0,dft1)));
+                    surfnormal.push_back(tmpsurf*length(dft0^dft1));
                 }
                 else if (iz==ceil((m*2-st)*np2+0.0001)){
                     valarray<double> tmpindex(3);
@@ -325,7 +325,7 @@ void EhrenSampleStepper::step(int niter)
                     tmpindex[2]=iz;
                     indexAll.push_back(tmpindex);
                     valarray<double>tmpsurf={0,0,-1};
-                    surfnormal.push_back(tmpsurf*length(cross(dft0,dft1)));
+                    surfnormal.push_back(tmpsurf*length(dft0^dft1));
                 }
             }
         }
@@ -334,7 +334,7 @@ void EhrenSampleStepper::step(int niter)
     //generate correct point mesh. How?
     vector<valarray<double>> pmesh; //generate kpts in first Brillouin zone
     for (double i = -0.5;i<=0.5;i+=dk){
-        for (double j=-0.5;j<=0.5;j+=dk){
+        for (double j=-0;j<=0.001;j+=dk){
             for (double k=-10.5;k<=10.5;k+=1.5){
                 valarray<double> tmp(3); //generate kpoints only along the periodic direction
                 tmp[0]=i;
@@ -367,12 +367,15 @@ void EhrenSampleStepper::step(int niter)
   
     double time=dt*(s_.ctrl.mditer-1);
     valarray<complex<double>> Volkov_ph(pmesh.size()); // calculate the phase factor of Volkov state
+    D3vector vecA(0,0,0);
     for (int ip=0;ip<pmesh.size();ip++){
         complex<double> previous_ph(1,0);
         for (double it=0;it<=time;it+=dt){
             valarray<double>tmpkpt(3);
-            ef_.vp->propagate(it, s_.ctrl.tddt);
-            D3vector vecA=ef_.vp->value();
+            if(ef_.vp){
+                ef_.vp->propagate(it, s_.ctrl.tddt);
+                vecA=ef_.vp->value();
+            }
             tmpkpt[0]=pmesh[ip][0]-vecA[0];
             tmpkpt[1]=pmesh[ip][1]-vecA[1];
             tmpkpt[2]=pmesh[ip][2]-vecA[2];
@@ -477,8 +480,8 @@ void EhrenSampleStepper::step(int niter)
     }
 //hack pes_flux
 //     if(calc_flux){
-        D3vector vecA=ef_.vp->value();
-        if(ef_.vp && oncoutpe) cout<<"right before p-A/c"<<endl;
+        if(ef_.vp) vecA=ef_.vp->value();
+        if(oncoutpe) cout<<"right before p-A/c"<<endl;
         for (int ip=0;ip<pmesh.size();ip++){
             valarray<double>tmpkpt(3);
             tmpkpt[0]=pmesh[ip][0]-vecA[0];
@@ -1523,7 +1526,7 @@ void EhrenSampleStepper::step(int niter)
     }
 
     // if save wf at the end of laser pulse
-    if (ef_.vp->get_eop()==1)
+    if (ef_.vp && ef_.vp->get_eop()==1)
     {
       // create output directory if it doesn't exist
       // string dirbase = "md";
