@@ -508,10 +508,11 @@ void EhrenSampleStepper::step(int niter)
         for (int isp=0;isp<indexAll.size();isp++){ //loop over surface points
             for (int idir=0;idir<3;idir++){
                 for (int ip=0;ip<pmesh.size();ip++){ //loop over the p-mesh
+                    valarray<complex<double>> Jk_tmp(wf.sd(0,0)->nstloc());
                     for ( int n = 0; n < wf.sd(0,0)->nstloc(); n++ ){//loop over state ispin=0, ikpt=0
-                        Jk[isp][idir][ip][n]=Jk[isp][idir][ip][n]+Volkov_ph[ip]*(kswfr[n][isp]*(2*vecA[idir]-pmesh[ip][idir])+gkswfr[idir][n][isp]*complex<double>(0,1));
+                        Jk_tmp[n]=kswfr[n][isp]*(2*vecA[idir]-pmesh[ip][idir])+gkswfr[idir][n][isp]*complex<double>(0,1);
                     }
-                    Jk[isp][idir][ip]*=Volkov_coef[isp][ip];
+                    Jk[isp][idir][ip]+=Jk_tmp*Volkov_coef[isp][ip]*Volkov_ph[ip];
                     spectramp[ip]=spectramp[ip]+Jk[isp][idir][ip]*complex<double>(surfnormal[isp][idir]/2.0,0);
                 }
             }
