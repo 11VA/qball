@@ -365,6 +365,7 @@ void EhrenSampleStepper::step(int niter)
 
     tmap["current"].start();
     currd_.update_current(ef_, dwf);
+    if (s_.ctrl.has_cap) currd_.print_flux(&s_,ef_,cd_); //print flux that pass through absorbing potential; not working with vp
     tmap["current"].stop();
 
     if(ef_.vp && oncoutpe){
