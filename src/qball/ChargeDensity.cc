@@ -1000,7 +1000,7 @@ void ChargeDensity::plot_rhoint(const Sample * s, const std::string & filename) 
         const double drx = length(a0)/(double)np0;
         const double dry = length(a1)/(double)np1;
         const double drz = length(a2)/(double)np2;
-        const double surface_element=dry*dry;
+        const double surface_element=drx*dry;
 
         for ( int k = 0; k < np2; k++ ) {
             const int kp = (k + np2/2 ) % np2;
