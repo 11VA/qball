@@ -370,8 +370,6 @@ void EhrenSampleStepper::step(int niter)
     if(ef_.vp && oncoutpe){
       std::cout << "<!-- vector_potential: " << ef_.vp->value() << " -->\n";
     }
-    //hack
-    if (s_.ctrl.has_cap) currd_.print_flux(&s_,ef_,cd_); //print flux that pass through absorbing potential
     
     // average forces over symmetric atoms
     if ( compute_forces && s_.symmetries.nsym() > 0) {

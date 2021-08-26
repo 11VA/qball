@@ -47,7 +47,6 @@ public:
     void plot(const Sample *, const std::string &);
     void plot_vtk(const Sample *, const std::string &) const;
     void twfr(valarray<valarray<valarray<complex<double>>>> &gkswfr,valarray<valarray<complex<double>>>&kswfr,const vector<valarray<double>>&indexAll) const;
-    void print_flux(const Sample * s, const EnergyFunctional & ef,const ChargeDensity & cd);
     void plot_jint(const Sample * , const std::string & ) const; 
     };
 
