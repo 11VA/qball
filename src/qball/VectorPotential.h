@@ -61,9 +61,9 @@ public:
       Messages::fatal("Cannot specify a vector potential and a laser at the same time.");
     }
     
-    if(fabs(laser_freq) < 1e-15 && norm(laser_amp) > 1e-15) {
-      Messages::fatal("The laser_freq cannot be zero. Zero for static field");
-    }
+    //if(fabs(laser_freq) < 1e-15 && norm(laser_amp) > 1e-15) {
+    //  Messages::fatal("The laser_freq cannot be zero. Zero for static field");
+    //}
         
     induced_ =  D3vector(0.0, 0.0, 0.0);
     value_ = induced_ + external_;

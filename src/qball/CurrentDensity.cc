@@ -15,7 +15,6 @@
 // CurrentDensity.C
 //
 ////////////////////////////////////////////////////////////////////////////////
-// $Id: CurrentDensity.h,v 1.13 2008-09-08 15:56:18 fgygi Exp $
 
 #include <vector>
 #include <valarray>
@@ -103,68 +102,6 @@ void CurrentDensity::update_current(EnergyFunctional & energy_functional, const 
         if ( wf_.context().onpe0() ) {
             std::cout << "  total_electronic_current:\t" << std::fixed << std::setw( 20 ) << std::setprecision( 12 ) << total_current[0] << '\t' << total_current[1] << '\t' << total_current[2] << std::endl;
         }
-    }
-}
-void CurrentDensity::print_flux(const Sample * s, const EnergyFunctional & ef,const ChargeDensity & cd) {
-    using namespace std;
-    const int dir=s->ctrl.cap_axis;
-    const int np0 = vft()->np0();
-    const int np1 = vft()->np1();
-    const int np2 = vft()->np2();
-    const float a0 = length(s->atoms.cell().a(0));
-    const float a1 = length(s->atoms.cell().a(1));
-    const float a2 = length(s->atoms.cell().a(2));
-    const double drx = a0/(double)np0;
-    const double dry = a1/(double)np1;
-    const double drz = a2/(double)np2;
-
-    std::vector<double> global_current;
-    vft()->gather(*s->wf.spincontext(0), current[dir][0], global_current);
-    std::vector<double> rho;
-    if (ef.vp){
-        vft()->gather(*s->wf.spincontext(0), cd.rhor[0], rho);
-    }
-
-    if ( s->ctxt_.onpe0() ) {
-        const float st = s->ctrl.cap_start;
-        const float m = s->ctrl.cap_center;
-
-        int sel;
-        valarray<double> flux(0.0,2);
-        const double surface_element=drx*dry;
-        cout<<"surface element "<<surface_element<<endl;
-        cout<<"bottom "<<floor(st*np2-0.00001)<<endl;
-        cout<<"top "<<ceil((m*2-st)*np2+0.00001)<<endl;
-        const int floor=st*np2-0.00001;
-        const int ceil=(m*2-st)*np2+0.00001;
-        for ( int k = 0; k < np2; k++ ) {
-            const int kp = (k + np2/2 ) % np2;
-            if (kp<=floor && kp>=floor-4) {
-                sel=0;
-            }
-            else if (kp>=ceil && kp<=ceil+4) {
-                sel=1;
-            }
-            else {
-                sel=-1;
-                continue;
-            }
-            cout<<"kp "<<kp<<endl;
-            if (sel>=0) {
-                double tmpf=0;
-                cout<<"enter sel "<<sel<<" "<<endl;
-                for ( int j = 0; j < np1; j++ ) {
-                    const int jp = (j + np1/2 ) % np1;
-                    for ( int i = 0; i < np0; i++ ) {
-                        const int ip = (i + np0/2 ) % np0;
-                        if(ef.vp) global_current[ip+np0*(jp+np1*kp)]+=ef.vp->value()[dir]*rho[ip+np0*(jp+np1*kp)];
-                        tmpf+=global_current[ip+np0*(jp+np1*kp)]*surface_element * drz;
-                    }
-                }
-                flux[sel]=tmpf;
-            }
-        }
-        cout<<"electrons pass the bottom and top boundary of absorbing potential "<<flux[0]<<" "<<flux[1]<<endl;
     }
 }
 
@@ -280,7 +217,7 @@ void CurrentDensity::plot(const Sample * s, const std::string & filename) {
     }
 }
 
-void CurrentDensity::plot_vtk(const Sample * s, const std::string & filename) {
+void CurrentDensity::plot_vtk(const Sample * s, const std::string & filename) const {
     using namespace std;
     Base64Transcoder xcdr;
 
@@ -291,8 +228,6 @@ void CurrentDensity::plot_vtk(const Sample * s, const std::string & filename) {
     }
 
     if ( s->ctxt_.onpe0() ) {
-    //hack
-    cout<<"global current size "<<global_current[0].size()<<endl;
 
         const int np0 = vft()->np0();
         const int np1 = vft()->np1();
@@ -334,6 +269,7 @@ void CurrentDensity::plot_vtk(const Sample * s, const std::string & filename) {
                         xcdr.byteswap_double(1, &value);
 #endif
                         os.write((char *)&value, sizeof(double));
+
                     }
                 }
             }
@@ -344,3 +280,144 @@ void CurrentDensity::plot_vtk(const Sample * s, const std::string & filename) {
     }
 
 }
+void CurrentDensity::plot_jint(const Sample * s, const std::string & filename) const {
+    using namespace std;
+
+    std::vector<std::vector<double> > global_current(3);
+
+    for(int idir = 0; idir < 3; idir++) {
+        vft()->gather(*s->wf.spincontext(0), current[idir][0], global_current[idir]);
+    }
+
+    if ( s->ctxt_.onpe0() ) {
+
+        const int np0 = vft()->np0();
+        const int np1 = vft()->np1();
+        const int np2 = vft()->np2();
+
+        D3vector a0 = s->atoms.cell().a(0);
+        D3vector a1 = s->atoms.cell().a(1);
+        D3vector a2 = s->atoms.cell().a(2);
+
+        std::ofstream os;
+
+        os.open((filename + ".j").c_str(), ofstream::out);
+
+        // write header and atoms
+        os << "Created " << isodate() << " by " << release() << endl;
+        os << "DIMENSIONS\t" << np0 << '\t' << np1 << '\t' << np2 << endl;
+        os << "ORIGIN\t" << -a0[0]/2.0 << "\t" << -a1[1]/2.0 << "\t" << -a2[2]/2.0 << "\t" << endl;
+        os << "SPACING\t" << a0[0]/np0 << '\t' << a1[1]/np1 << '\t' << a2[2]/np2 << endl;
+
+        os << setprecision(12);
+        const double drx = length(a0)/(double)np0;
+        const double dry = length(a1)/(double)np1;
+        const double drz = length(a2)/(double)np2;
+        const double surface_element=dry*dry;
+
+        for ( int k = 0; k < np2; k++ ) {
+            const int kp = (k + np2/2 ) % np2;
+            float jx=0;
+            float jy=0;
+            float jz=0;
+            for ( int j = 0; j < np1; j++ ) {
+                const int jp = (j + np1/2 ) % np1;
+
+                for ( int i = 0; i < np0; i++ ) {
+                    const int ip = (i + np0/2 ) % np0;
+                    jx += global_current[0][ip + np0*(jp + np1*kp)]*surface_element;
+                    jy += global_current[1][ip + np0*(jp + np1*kp)]*surface_element;
+                    jz += global_current[2][ip + np0*(jp + np1*kp)]*surface_element;
+                }
+            }
+            os<<jx<<" "<<jy<<" "<<jz<<endl;
+
+        }
+        os.close();
+    }
+}
+
+void CurrentDensity::print_flux(const Sample * s, const EnergyFunctional & ef,const ChargeDensity & cd) {
+    using namespace std;
+    const int dir=s->ctrl.cap_axis;
+
+    std::vector<double> global_current;
+
+    vft()->gather(*s->wf.spincontext(0), current[dir][0], global_current);
+    std::vector<double> rho;
+    if (ef.vp && ef.vp->value()[dir]>0) {
+        cout<<"non 0 vp"<<endl;
+        vft()->gather(*s->wf.spincontext(0), cd.rhor[0], rho);
+    }
+
+    if ( s->ctxt_.onpe0() ) {
+
+        const int np0 = vft()->np0();
+        const int np1 = vft()->np1();
+        const int np2 = vft()->np2();
+
+        const float a0 = length(s->atoms.cell().a(0));
+        const float a1 = length(s->atoms.cell().a(1));
+        const float a2 = length(s->atoms.cell().a(2));
+        const double drx = a0/(double)np0;
+        const double dry = a1/(double)np1;
+        const double drz = a2/(double)np2;
+        float st = s->ctrl.cap_start;
+        const float m = s->ctrl.cap_center;
+        float end=m*2-st;
+        int sel;
+        const double surface_element=drx*dry;
+        cout<<"surface element "<<surface_element<<endl;
+        st+=0.0;
+        end-=0.0;
+
+        if (st>1) {
+            st-=1;
+        }
+        if (end>1) {
+            end-=1;
+        }
+        cout<<"bottom "<<floor(st*np2)<<endl;
+        cout<<"top "<<ceil((end)*np2)<<endl;
+
+        const int floor=st*np2;
+        const int ceil=end*np2;
+
+        valarray<double> flux(0.0,2);
+
+        for ( int k = 0; k < np2; k++ ) {
+            const int kp = (k + np2/2 ) % np2;
+            if (kp>floor && kp<=floor+1) {
+                sel=0;
+            }
+            else if (kp<ceil && kp>=ceil-1) {
+                sel=1;
+            }
+            else {
+                sel=-1;
+                continue;
+            }
+            if(sel>=0) {
+                cout<<"enter sel "<<sel<<" kp= "<<kp<<endl;
+                double tmpf=0;
+                for ( int j = 0; j < np1; j++ ) {
+                    const int jp = (j + np1/2 ) % np1;
+
+                    for ( int i = 0; i < np0; i++ ) {
+                        const int ip = (i + np0/2 ) % np0;
+                        double value = global_current[ip + np0*(jp + np1*kp)];
+                        if(ef.vp&&ef.vp->value()[dir]>0) value+=ef.vp->value()[dir]*rho[ip+np0*(jp+np1*kp)];
+                        tmpf+=value*surface_element;
+                    }
+                }
+                flux[sel]=tmpf;
+            }
+        }
+
+        std::cout << std::setprecision(12) << std::fixed;
+        cout<<"electrons pass the bottom and top boundary of absorbing potential "<<flux[0]<<" "<<flux[1]<<endl;
+
+    }
+
+}
+

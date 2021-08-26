@@ -365,12 +365,13 @@ void EhrenSampleStepper::step(int niter)
 
     tmap["current"].start();
     currd_.update_current(ef_, dwf);
-    if (s_.ctrl.has_cap) currd_.print_flux(&s_,ef_,cd_); //print flux that pass through absorbing potential; not working with vp
     tmap["current"].stop();
 
     if(ef_.vp && oncoutpe){
       std::cout << "<!-- vector_potential: " << ef_.vp->value() << " -->\n";
     }
+    //hack
+    if (s_.ctrl.has_cap) currd_.print_flux(&s_,ef_,cd_); //print flux that pass through absorbing potential
     
     // average forces over symmetric atoms
     if ( compute_forces && s_.symmetries.nsym() > 0) {
@@ -1230,7 +1231,40 @@ void EhrenSampleStepper::step(int niter)
 
     s_.ctrl.mditer++;
 
+    Timer tm_saveden;
+    tm_saveden.start();
+
     // if savedenfreq variable set, save density in VMD Cube format
+    if(s_.ctrl.intfreq>0){
+        if (s_.ctrl.mditer%s_.ctrl.intfreq == 0 || s_.ctrl.mditer == 1){
+            string filebase = s_.ctrl.savedenfilebase;
+            string dirstr = filebase.substr(0, filebase.find_last_of('/'));
+          if ( s_.ctxt_.mype()==0 )
+          {
+             int mode = 0775;
+             struct stat statbuf;
+             int rc = stat(dirstr.c_str(), &statbuf);
+             if (rc == -1)
+             {
+                cout << "Creating directory: " << dirstr << endl;
+                rc = mkdir(dirstr.c_str(), mode);
+                rc = stat(dirstr.c_str(), &statbuf);
+             }
+             if (rc != 0 || !(statbuf.st_mode))
+             {
+                cout << "<ERROR> Can't stat directory " << dirstr << " </ERROR> " << endl;
+                MPI_Abort(MPI_COMM_WORLD,2);
+             }
+          }
+          ostringstream oss;
+          oss.width(7);  oss.fill('0');  oss << s_.ctrl.mditer;
+          string denfilename = filebase + "." + oss.str();
+          string curfilename = filebase + "-current." + oss.str();
+            cd_.plot_rhoint(&s_, denfilename);
+            currd_.plot_jint(&s_, curfilename);
+        }
+    }
+
     if (s_.ctrl.savedenfreq > 0)
     {
        if (s_.ctrl.mditer%s_.ctrl.savedenfreq == 0 || s_.ctrl.mditer == 1)
@@ -1369,6 +1403,18 @@ void EhrenSampleStepper::step(int niter)
 	  }
        }
     }
+  tm_saveden.stop();
+
+  double timeden = tm_saveden.cpu();
+  double tminden = timeden;
+  double tmaxden = timeden;
+    
+    s_.ctxt_.dmin(1,1,&tminden,1);
+    s_.ctxt_.dmax(1,1,&tmaxden,1);
+  if ( oncoutpe ) {
+    cout << "<!--  save den timing : " << setprecision(4) << setw(9) << tminden
+         << " " << setprecision(4) << setw(9) << tmaxden << " -->" << endl;
+  }
 
     // if save wf at the end of laser pulse
     if (ef_.vp && ef_.vp->get_eop()==1)

@@ -28,27 +28,27 @@
 #include <config.h>
 #include <iomanip>
 
-class CurrentDensity : private ChargeDensity
-{
-  private:
+class CurrentDensity : private ChargeDensity {
+private:
 
-  const Wavefunction& wf_;
+    const Wavefunction& wf_;
 
-  public:
-  
-  std::vector<std::vector<std::vector<double> > > current;
-  D3vector total_current;
- 
-  CurrentDensity (const Sample& s, const Wavefunction & wf);
-  ~CurrentDensity (){
-  }
+public:
 
-  void update_current(EnergyFunctional & energy, const Wavefunction & dwf, bool output=true);
+    std::vector<std::vector<std::vector<double> > > current;
+    D3vector total_current;
 
-  void plot(const Sample *, const std::string &);
-  void plot_vtk(const Sample *, const std::string &);
-  void twfr(valarray<valarray<valarray<complex<double>>>> &gkswfr,valarray<valarray<complex<double>>>&kswfr,const vector<valarray<double>>&indexAll) const;
+    CurrentDensity (const Sample& s, const Wavefunction & wf);
+    ~CurrentDensity () {
+    }
+
+    void update_current(EnergyFunctional & energy, const Wavefunction & dwf, bool output=true);
+
+    void plot(const Sample *, const std::string &);
+    void plot_vtk(const Sample *, const std::string &) const;
+    void twfr(valarray<valarray<valarray<complex<double>>>> &gkswfr,valarray<valarray<complex<double>>>&kswfr,const vector<valarray<double>>&indexAll) const;
     void print_flux(const Sample * s, const EnergyFunctional & ef,const ChargeDensity & cd);
-};
+    void plot_jint(const Sample * , const std::string & ) const; 
+    };
 
 #endif

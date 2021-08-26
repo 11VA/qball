@@ -155,6 +155,8 @@ struct Control
   float cap_center;
   vector<float> cap_params;
 
+  int intfreq;
+
 };
 #endif
 

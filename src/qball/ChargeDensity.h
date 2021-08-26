@@ -105,6 +105,7 @@ class ChargeDensity {
   void nlcc_forceden(int is, vector<complex<double> > &rhog);
   void print_memory(ostream&os, double& totsum, double& locsum) const;
   void print_timing();
+void plot_rhoint(const Sample * , const std::string & ) const;
   
   ChargeDensity(const Sample& s);
   ChargeDensity(const Sample& s, Wavefunction& cdwf);
