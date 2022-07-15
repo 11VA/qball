@@ -43,6 +43,7 @@ noinst_HEADERS =                            \
 	EnergyFunctional.h                  \
 	EnthalpyFunctional.h                \
 	ExponentialWavefunctionStepper.h    \
+	PETSCWavefunctionStepper.h          \
 	Extrapolator.h                      \
 	ExtrapolatorASP.h                   \
 	ExtrapolatorNTC.h                   \
@@ -180,6 +181,7 @@ libqbLink_a_SOURCES =                        \
 	EhrenSampleStepper.cc                \
 	FCPStepper.cc                        \
 	ExponentialWavefunctionStepper.cc    \
+	PETSCWavefunctionStepper.cc          \
 	SelfConsistentPotential.cc           \
 	clooper.c                            \
 	qbLink.cc

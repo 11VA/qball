@@ -56,7 +56,7 @@ class Sample {
   // AS: than wf, make hamil_wf point to these wave functions instead
   Wavefunction* hamil_wf;
   // AS: keep a copy of the wave function during Born-Oppenheimer MD when non-adiabatic overlaps are to be calculated
-  Wavefunction* previous_wf;
+  Wavefunction* previous_wf=NULL;
   Wavefunction* wfv; // wavefunction velocity
   Control ctrl;
   SymmetrySet symmetries;

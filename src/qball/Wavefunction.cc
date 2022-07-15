@@ -3759,6 +3759,85 @@ void Wavefunction::phase_real(bool new_wf_phase_real)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+//AK: compute size of flat array and allocate
+void Wavefunction::allocate_flat() {
+    // AK: is the size always the same for each spin and kpoints?
+    // If so, could just do totsize = nkpoint * nspin * sd_[0][0]->c().size()
+    flatarrsize=0;
+    for (int ispin=0; ispin<nspin_; ispin++)
+        for (int ikp=0; ikp < sdcontext_[ispin].size(); ikp++) {
+//      if (ctxt_.oncoutpe())
+//        cout << "ispin " << ispin << ", ikp " << ikp << ", SD size " << sd_[ispin][ikp]->c().size() << endl;
+            flatarrsize+=sd_[ispin][ikp]->c().size();
+        }
+
+    // AK: allocate the flattened array
+//  if (ctxt_.oncoutpe())
+//    cout << "flat array size: " << flatarrsize << endl;
+    flatarr = new complex<double> [flatarrsize];
+}
+
+
+// AK: flatten sd[ispin][ikp] into single array
+void Wavefunction::flatten() {
+    // AK: copy the elements
+    int iflat=0;
+    for (int ispin=0; ispin<nspin_; ispin++)
+        for (int ikp=0; ikp < sdcontext_[ispin].size(); ikp++) {
+            for (int i=0; i<sd_[ispin][ikp]->c().size(); i++)		// AK: there is probably a faster way
+                flatarr[iflat+i]=sd_[ispin][ikp]->c().valptr()[i];
+            iflat+=sd_[ispin][ikp]->c().size();
+            // AK: maybe make sd_ point to appropriate part of new array to reduce memory usage
+            // something like sd_[ispin][kpoint]->c().setvalptr(flatarray+index);
+        }
+//  if (ctxt_.oncoutpe())
+//    cout << "flatten iflat: " << iflat << endl;
+}
+
+// AK: copy contents of flat array back into sd[ispin][ikp]
+void Wavefunction::unflatten() {
+    int iflat=0;
+    for (int ispin=0; ispin<nspin_; ispin++)
+        for (int ikp=0; ikp < sdcontext_[ispin].size(); ikp++) {
+            for (int i=0; i<sd_[ispin][ikp]->c().size(); i++)
+                sd_[ispin][ikp]->c().valptr()[i]=flatarr[iflat+i];	// AK: there is probably a faster way
+            iflat+=sd_[ispin][ikp]->c().size();
+        }
+//  if (ctxt_.oncoutpe())
+//    cout << "unflatten iflat: " << iflat << endl;
+}
+
+// AK: copy contents of a PETSc Vec into sd[ispin][ikp]
+void Wavefunction::set_from_vec(const Vec & petsc_vec) {
+    // AK: check that local sizes are the same
+    int petsc_vec_size;
+    VecGetLocalSize(petsc_vec, &petsc_vec_size);
+//  if (ctxt_.oncoutpe())
+//    cout << "petsc size: " << petsc_vec_size << ", flatarrsize: " << flatarrsize << endl;
+    assert (flatarrsize == petsc_vec_size);
+
+    // AK: get pointer to array held by petsc_vec
+    const complex<double> * petsc_vec_arr;
+    VecGetArrayRead(petsc_vec, &petsc_vec_arr);
+
+    // AK: copy contents. maybe there is a faster way
+    int iflat=0;
+    for (int ispin=0; ispin<nspin_; ispin++)
+        for (int ikp=0; ikp < sdcontext_[ispin].size(); ikp++) {
+            for (int i=0; i<sd_[ispin][ikp]->c().size(); i++)
+                sd_[ispin][ikp]->c().valptr()[i]=petsc_vec_arr[iflat+i];
+            iflat+=sd_[ispin][ikp]->c().size();
+        }
+//  if (ctxt_.oncoutpe())
+//    cout << "unflatten iflat: " << iflat << endl;
+
+    // AK: must restore array once no longer need access
+    VecRestoreArrayRead(petsc_vec, &petsc_vec_arr);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 ostream& operator<<(ostream& os, Wavefunction& wf)
 {
   wf.print(os,"text","wavefunction");

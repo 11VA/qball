@@ -113,7 +113,10 @@ class EnergyFunctional
   
   ChargeDensity *hamil_cd() { return hamil_cd_; } ;   // AS: specifies the density used for setting up the Hamiltonian
 
-  double energy(Wavefunction& wf, bool compute_hpsi, Wavefunction& dwf,
+  double energy(bool compute_hpsi, Wavefunction& dwf,
+    bool compute_forces, vector<vector<double> >& fion,
+                bool compute_stress, valarray<double>& sigma);
+  double energy(const Wavefunction& wf, bool compute_hpsi, Wavefunction& dwf,
     bool compute_forces, vector<vector<double> >& fion,
                 bool compute_stress, valarray<double>& sigma);
   

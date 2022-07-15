@@ -43,6 +43,17 @@ struct Control
   // control variables
   string debug, timing;
   string wf_dyn, atoms_dyn; // dynamics string flags 
+  string petsc_ts_type;       // AK: petsc time stepper type
+  string petsc_ts_subtype;
+  string petsc_adapt="none";
+  double petsc_adapt_atol=-1;
+  double petsc_adapt_rtol=-1;
+  float petsc_unit_eps=0;
+  int petsc_unit_k=-1;
+  bool petsc_hdf5=false;
+  bool petsc_unit=false;
+  bool etrs_merge_exp;
+  int etrs_order;
   int nite;
   double emass;       // electron mass
     

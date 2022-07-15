@@ -77,6 +77,8 @@ noinst_HEADERS =                            \
 	WfExtrap.h                          \
 	WFPhaseRealVar.h                    \
 	CAP.h								\
+	PETScUnit.h 						\
+	PETScAdapt.h 						\
 	Xc.h
 
 

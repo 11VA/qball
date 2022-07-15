@@ -22,49 +22,75 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// ExponentialWavefunctionStepper.h
+// PETSCWavefunctionStepper.h
 //
 ////////////////////////////////////////////////////////////////////////////////
 // $Id: ExponentialWavefunctionStepper.h,v 1.5 2011-06-02 15:56:19 schleife Exp $
 
 #include <config.h>
 
-#ifndef EXPONENTIALWAVEFUNCTIONSTEPPER_H
-#define EXPONENTIALWAVEFUNCTIONSTEPPER_H
+#ifndef PETSCWAVEFUNCTIONSTEPPER_H
+#define PETSCWAVEFUNCTIONSTEPPER_H
 
 #include "EnergyFunctional.h"
 #include "SelfConsistentPotential.h"
 #include "Wavefunction.h"
 #include "WavefunctionStepper.h"
-
 #include <deque>
+
+#include <petscts.h>
+#include <petscviewerhdf5.h>
+
 using namespace std;
 
-class ExponentialWavefunctionStepper : public WavefunctionStepper {
+// AK: context for rhs function
+struct PETSC_CTX {
+    EnergyFunctional & ef_;
+    Sample & s_;
+    Wavefunction & dwf_;
+    Vec & dwf_vec_;
+    vector<vector<double>> & fion_;
+    valarray<double> & sigma_eks_;
+    TimerMap & tmap_;
+    Vec & hamil_wf_vec_;
+    // AK: needed to initialize
+    PETSC_CTX(EnergyFunctional & ef, Sample & s, Wavefunction & dwf, Vec & dwf_vec, vector<vector<double>> & fion, valarray<double> & sigma_eks, TimerMap & tmap,Vec& hamil_wf_vec)
+        : ef_(ef), s_(s), dwf_(dwf), dwf_vec_(dwf_vec), fion_(fion), sigma_eks_(sigma_eks), tmap_(tmap), hamil_wf_vec_(hamil_wf_vec) {}
+};
+
+class PETSCWavefunctionStepper : public WavefunctionStepper {
 private:
 
     double tddt_;
-    int order_;
-    int stored_iter_;
-    bool approximated_;
-    bool merge_exp_;
     std::vector<SelfConsistentPotential> potential_;
-    Wavefunction expwf_;
-    Wavefunction wfhalf_;
     Wavefunction newwf_;
+    Wavefunction dwf_;
+
+    PetscErrorCode ierr;
+    TS petsc_ts;
+    Vec petsc_wf_vec;        // holds flattened wf array
+    Vec petsc_dwf_vec;
+
+    Vec hamil_wf_vec;
+
+    PETSC_CTX * petsc_ctx;
 
 protected:
 
     EnergyFunctional & ef_;
     Sample & s_;
-    void exponential(int num_exp, double dt1, double dt2, Wavefunction * dwf = 0);
 
 public:
-    void preupdate();
     void update(Wavefunction& dwf);
+    static PetscErrorCode dummy_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
+    static PetscErrorCode RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_ );
+    static PetscErrorCode RegisterMyRKC2(void);
 
-    ExponentialWavefunctionStepper(Wavefunction& wf, double tddt, TimerMap& tmap, EnergyFunctional & ef, Sample & s, bool approximated);
-    ~ExponentialWavefunctionStepper() {};
+    //static PetscErrorCode unit_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_); 
+    //static PetscErrorCode unit_evolve_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
+
+    PETSCWavefunctionStepper(Wavefunction& wf, double tddt, TimerMap& tmap, EnergyFunctional & ef, Sample & s, vector<vector<double>> & fion, valarray<double> & sigma_eks);
+    ~PETSCWavefunctionStepper();
 };
 #endif
 

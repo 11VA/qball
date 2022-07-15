@@ -173,6 +173,8 @@ using namespace std;
 #include <vars/VectorPotentialVar.h>
 #include <vars/VdW.h>
 #include <vars/CAP.h>
+#include <vars/PETScUnit.h>
+#include <vars/PETScAdapt.h>
 
 #ifdef HAVE_BGQLIBS
 #include <spi/include/kernel/process.h>
@@ -434,6 +436,8 @@ int main(int argc, char **argv, char **envp)
   ui->addVar(new VectorPotentialVar(s));
   ui->addVar(new VdW(s));
   ui->addVar(new CAP(s));
+  ui->addVar(new PETScAdapt(s));
+  ui->addVar(new PETScUnit(s));
   
 #ifdef USE_JAGGEMM
   setup_grid();
