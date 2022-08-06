@@ -1659,6 +1659,9 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
 
     if ( compute_hpsi ) {
         tmap["hpsi"].start();
+        if(s_.ctxt_.oncoutpe()){
+            cout<<"compute KE="<<s_.ctrl.petsc_KE<<" compute Vr="<<s_.ctrl.petsc_Vr<<endl;
+        }
         //assert(psi.nspin()==1);
         for ( int ispin = 0; ispin < psi.nspin(); ispin++ ) {
             if (psi.spinactive(ispin)) {
@@ -1678,42 +1681,47 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
                         if(vp) kpg2 = vp->get_kpgpa2(wfbasis);
 
                         // Laplacian
-                        if ( use_confinement ) {
-                            for ( int n = 0; n < sd.nstloc(); n++ ) {
-                                assert(cfp[ispin][ikp]!=0); // cfp must be non-zero if this ikp active
-                                const valarray<double>& fstress = cfp[ispin][ikp]->fstress();
-                                for ( int ig = 0; ig < ngwloc; ig++ ) {
-                                    cp[ig+mloc*n] += 0.5 * ( kpg2[ig] + fstress[ig] ) *
-                                                     c[ig+mloc*n];
+                        if (s_.ctrl.petsc_KE) {
+                            if ( use_confinement ) {
+                                for ( int n = 0; n < sd.nstloc(); n++ ) {
+                                    assert(cfp[ispin][ikp]!=0); // cfp must be non-zero if this ikp active
+                                    const valarray<double>& fstress = cfp[ispin][ikp]->fstress();
+                                    for ( int ig = 0; ig < ngwloc; ig++ ) {
+                                        cp[ig+mloc*n] += 0.5 * ( kpg2[ig] + fstress[ig] ) *
+                                                         c[ig+mloc*n];
+                                    }
+                                }
+                            }
+                            else {
+                                //ewd:  OMP HERE?
+                                // AS: e_n are currently only hard-coded and renormalization is disabled by default
+                                // double as_renorm[4] = {-28.70987,-28.70987,-28.70987,-3.13510};
+                                //#pragma omp parallel for
+                                for ( int n = 0; n < sd.nstloc(); n++ ) {
+                                    for ( int ig = 0; ig < ngwloc; ig++ ) {
+                                        cp[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
+
+                                        // AS: energy_renorm allows applying a "shifted Hamiltonian" (H-e_n), e_n being the shift
+                                        // AS: for each individual state n, to the wave function during the time propgation
+                                        // AS: by subtracting the phase: cp -= 1.0 * as_renorm[n] / 27.2116 * c[ig+mloc*n];
+                                        // AS: this should prevent the time propagation from blowing up
+                                        // if (energy_renorm) 
+                                        // AS: renormalize each state individually
+                                        // cp[ig+mloc*n] -= 1.0 * as_renorm[n] / 27.2116 * c[ig+mloc*n];
+                                        // AS: renormalize all states with the same value
+                                        // cp[ig+mloc*n] -= 1.0 * (-0.8204477) * c[ig+mloc*n];
+
+                                    }
                                 }
                             }
                         }
-                        else {
-                            //ewd:  OMP HERE?
-                            // AS: e_n are currently only hard-coded and renormalization is disabled by default
-                            // double as_renorm[4] = {-28.70987,-28.70987,-28.70987,-3.13510};
-                            //#pragma omp parallel for
-                            for ( int n = 0; n < sd.nstloc(); n++ ) {
-                                for ( int ig = 0; ig < ngwloc; ig++ ) {
-                                    cp[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
 
-                                    // AS: energy_renorm allows applying a "shifted Hamiltonian" (H-e_n), e_n being the shift
-                                    // AS: for each individual state n, to the wave function during the time propgation
-                                    // AS: by subtracting the phase: cp -= 1.0 * as_renorm[n] / 27.2116 * c[ig+mloc*n];
-                                    // AS: this should prevent the time propagation from blowing up
-                                    // if (energy_renorm) {
-                                    // AS: renormalize each state individually
-                                    // cp[ig+mloc*n] -= 1.0 * as_renorm[n] / 27.2116 * c[ig+mloc*n];
-                                    // AS: renormalize all states with the same value
-                                    // cp[ig+mloc*n] -= 1.0 * (-0.8204477) * c[ig+mloc*n];
-
-                                }
-                            }
-                        }
 
                         if(vp) delete [] kpg2;
 
-                        sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
+                        if (s_.ctrl.petsc_Vr) {
+                            sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
+                        }
                     }
                 }
             }

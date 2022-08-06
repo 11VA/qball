@@ -474,31 +474,17 @@ void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
     VecCopy(petsc_dwf_vec, rhs);
     VecScale(rhs, -1.0*PETSC_i);
     // output the rhs
-    if(s_.ctrl.petsc_unit) {
+    if(s_.ctrl.petsc_unit && step%s_.ctrl.petsc_savefreq==0) {
+        if (s_.ctxt_.oncoutpe()) 
+            cout<<"save unit rhs at "<<s_.ctrl.mditer<<endl;
         PetscViewer   outputfile; /* file to output data to */
         char filename[50];
         PetscViewerCreate(PETSC_COMM_WORLD, &outputfile);
-        bool usehdf=s_.ctrl.petsc_hdf5;
-        if (usehdf) {
-            PetscViewerSetType(outputfile,PETSCVIEWERHDF5);
-            sprintf(filename, "evolve/unit_%d_%d.dat.h5",s_.ctrl.petsc_unit_k,step);
-        }
-        else {
-            PetscViewerSetType(outputfile, PETSCVIEWERBINARY);
-            sprintf(filename, "evolve/unit_%d_%d.dat",s_.ctrl.petsc_unit_k,step);
-        }
+        PetscViewerSetType(outputfile, PETSCVIEWERBINARY);
+        sprintf(filename, "evolve/unit_%d_%d.dat",s_.ctrl.petsc_unit_k,step);
         PetscViewerFileSetMode(outputfile, FILE_MODE_WRITE);
         PetscViewerFileSetName(outputfile, filename);
-        if(usehdf) {
-            char groupname[50];
-            sprintf(groupname,"%d",step);
-            PetscViewerHDF5PushGroup(outputfile, groupname);
-            VecView(rhs, outputfile);
-            PetscViewerHDF5PopGroup(outputfile);
-        }
-        else {
-            VecView(rhs, outputfile);
-        }
+        VecView(rhs, outputfile);
         PetscViewerDestroy(&outputfile);
     }
 

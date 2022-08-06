@@ -50,8 +50,11 @@ struct Control
   double petsc_adapt_rtol=-1;
   float petsc_unit_eps=0;
   int petsc_unit_k=-1;
-  bool petsc_hdf5=false;
+  int petsc_savefreq=1;
   bool petsc_unit=false;
+  bool petsc_KE=true;
+  bool petsc_Vr=true;
+
   bool etrs_merge_exp;
   int etrs_order;
   int nite;

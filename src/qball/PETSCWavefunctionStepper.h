@@ -39,7 +39,6 @@
 #include <deque>
 
 #include <petscts.h>
-#include <petscviewerhdf5.h>
 
 using namespace std;
 

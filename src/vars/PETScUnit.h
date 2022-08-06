@@ -50,28 +50,33 @@ public:
     int set ( int argc, char **argv ) {
         if ( argc < 3) {
             if ( ui->oncoutpe() )
-                cout << " <ERROR> petsc_unit takes 2-3 values: eps unit_k [usehdf5? 1:0] </ERROR>" << endl;
+                cout << " <ERROR> petsc_unit takes 2 or more values: eps unit_k savefreq </ERROR>" << endl;
             return 1;
         }
 
         float v = atof(argv[1]);
         s->ctrl.petsc_unit_eps = v;
         s->ctrl.petsc_unit_k = atoi(argv[2]);
-        if (argc==4)
-            s->ctrl.petsc_hdf5 = atoi(argv[3]);
-        //if (argc==4) {
-        //    if (argv[3]=="hdf5")
-        //        s->ctrl.petsc_hdf5=true;
-        //    else if (argv[3]=="binary")
-        //        s->ctrl.petsc_hdf5=false;
-        //    else {
-        //        if ( ui->oncoutpe() ){
-        //            cout << " <ERROR> please specify whether output in hdf5 or binary format </ERROR>" << endl;
-        //        }
-        //        return 1;
-        //    }
-        //}
-
+        if (argc>3){
+            s->ctrl.petsc_savefreq = atoi(argv[3]);
+            if(s->ctrl.petsc_savefreq==0){
+                s->ctrl.petsc_savefreq=1;
+            }
+            if (argc>4){
+                if (strcmp(argv[4],"KE")==0){
+                    s->ctrl.petsc_KE=true;
+                    s->ctrl.petsc_Vr=false;
+                }
+                else if(strcmp(argv[4],"KEVr")==0){
+                    s->ctrl.petsc_KE=true;
+                    s->ctrl.petsc_Vr=true;
+                }
+                else if(strcmp(argv[4],"Vr")==0){
+                    s->ctrl.petsc_KE=false;
+                    s->ctrl.petsc_Vr=true;
+                }
+            }
+        }
         s->ctrl.petsc_unit = true;
 
         return 0;
@@ -84,15 +89,19 @@ public:
         st.setf(ios::right,ios::adjustfield);
         st << setw(10) << s->ctrl.petsc_unit_eps<<" unit_k = ";
         st << setw(10) << s->ctrl.petsc_unit_k;
-        st << setw(10) << s->ctrl.petsc_hdf5;
+        st << setw(10) << s->ctrl.petsc_savefreq;
+        st << setw(10) <<"compute KE="<<s->ctrl.petsc_KE;
+        st << setw(10) <<"compute Vr="<<s->ctrl.petsc_Vr;
         return st.str();
     }
 
     PETScUnit(Sample *sample) : s(sample) {
         s->ctrl.petsc_unit_eps = 0;
         s->ctrl.petsc_unit_k = 0;
-        s->ctrl.petsc_hdf5 = false;
+        s->ctrl.petsc_savefreq = 1;
         s->ctrl.petsc_unit = false;
+        s->ctrl.petsc_Vr=true;
+        s->ctrl.petsc_KE=true;
     };
 };
 #endif
