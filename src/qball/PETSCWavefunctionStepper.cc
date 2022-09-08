@@ -30,13 +30,14 @@
 #include <config.h>
 
 #include "PETSCWavefunctionStepper.h"
-#include "SelfConsistentPotential.h"
 #include "SlaterDet.h"
 #include "Sample.h"
+#include "FourierTransform.h"
 #include <iostream>
 #include <deque>
 #include <sys/stat.h>
 #include <petscsys.h>
+#include <petscts.h>
 
 using namespace std;
 
@@ -75,6 +76,7 @@ PETSCWavefunctionStepper::PETSCWavefunctionStepper(Wavefunction& wf, double tddt
         cout << endl;
     }
     VecRestoreArrayRead(petsc_wf_vec, &wf_vec_arr);
+    bool mrk=false;
 
     //if (unit_evolve) {
     VecDuplicate(petsc_wf_vec,&hamil_wf_vec);
@@ -88,6 +90,7 @@ PETSCWavefunctionStepper::PETSCWavefunctionStepper(Wavefunction& wf, double tddt
         cout << endl;
     }
     VecRestoreArrayRead(hamil_wf_vec, &hamil_wf_vec_arr);
+//    s_.hamil_wf->set_from_vec(hamil_wf_vec);
     //}
 
     // AK: also initialize dwf aka the working rhs vector
@@ -128,6 +131,24 @@ PETSCWavefunctionStepper::PETSCWavefunctionStepper(Wavefunction& wf, double tddt
                 TSSSPSetType(petsc_ts,"rk104");      // AK: 4th order, 10 stages
         }
     }
+    if (s_.ctrl.petsc_ts_type == "mprk") {
+        mrk=true;
+        string mrktype=s_.ctrl.petsc_ts_subtype;
+        if (s_.ctrl.petsc_ts_subtype == "")
+            TSSetType(petsc_ts, TSMPRK);
+        else {
+            if(mrktype=="2a22")
+                TSSetType(petsc_ts, TSMPRK);
+            else if (mrktype=="2a32")
+                TSMPRKSetType(petsc_ts, TSMPRK2A32);
+            else if (mrktype=="p2")
+                TSMPRKSetType(petsc_ts, TSMPRKP2);
+            else if (mrktype=="p3")
+                TSMPRKSetType(petsc_ts, TSMPRKP3);
+//            else if (mrktype=="pm3")
+//                TSMPRKSetType(petsc_ts,TSMPRK3P2M) ;
+        }
+    }
 
     TSSetTimeStep(petsc_ts, tddt_);            // AK: input file provides time step
     TSSetExactFinalTime(petsc_ts, TS_EXACTFINALTIME_STEPOVER);  // Don't do anything if final time is exceeded
@@ -154,8 +175,6 @@ PETSCWavefunctionStepper::PETSCWavefunctionStepper(Wavefunction& wf, double tddt
     TSView(petsc_ts, PETSC_VIEWER_STDOUT_WORLD);
 
     // AK: not sure whether to give it NULL or petsc_dwf_vec
-    //TSSetRHSFunction(petsc_ts, NULL, unit_RHS, petsc_ctx);
-    //TSSetRHSFunction(petsc_ts, NULL, RHS, petsc_ctx);
     {
         if (s_.ctxt_.oncoutpe() && s_.ctrl.petsc_unit) {
             struct stat info;
@@ -165,14 +184,48 @@ PETSCWavefunctionStepper::PETSCWavefunctionStepper(Wavefunction& wf, double tddt
                 //rc = stat("evolve", &info);
             }
         }
-        //    TSSetRHSFunction(petsc_ts, NULL, unit_evolve_RHS, petsc_ctx);
         TSSetRHSFunction(petsc_ts, NULL, RHS, petsc_ctx);
+        if(mrk) {
+            IS iss;
+            IS isf;
+            PetscInt       *indicess;
+            PetscInt       *indicesf;
+            PetscInt N;
+            VecGetSize(petsc_wf_vec,&N);
+            //(PetscMalloc1(1,&indicess));
+            //(PetscMalloc1(1,&indicesf));
+            //indicess[0]=0;
+            //indicesf[0]=0;
+            //(ISCreateGeneral(PETSC_COMM_WORLD,1,indicess,PETSC_COPY_VALUES,&iss));
+            //(ISCreateGeneral(PETSC_COMM_WORLD,1,indicesf,PETSC_COPY_VALUES,&isf));
+            //
+
+            (PetscMalloc1(N,&indicess));
+            (PetscMalloc1(N,&indicesf));
+            for (int k=0; k<N; k++) {
+                indicess[k] = k;
+                indicesf[k] = k;
+            }
+            if(s_.ctxt_.oncoutpe()) {
+                cout<<"indicess ";
+                for(int i=0; i<10; i++) {
+                    cout<<indicess[i]<<" ";
+                }
+                cout<<endl;
+            }
+//(ISCreateGeneral(PETSC_COMM_WORLD,N,indicess,PETSC_COPY_VALUES,&iss));
+//            (ISCreateGeneral(PETSC_COMM_WORLD,N,indicesf,PETSC_COPY_VALUES,&isf));
+            (ISCreateGeneral(PETSC_COMM_WORLD,N,indicess,PETSC_USE_POINTER,&iss));
+            (ISCreateGeneral(PETSC_COMM_WORLD,N,indicesf,PETSC_USE_POINTER,&isf));
+            TSRHSSplitSetIS(petsc_ts,"slow",iss);
+            TSRHSSplitSetIS(petsc_ts,"fast",isf);
+            TSRHSSplitSetRHSFunction(petsc_ts,"slow",NULL,(TSRHSFunction)RHSVrVnl,petsc_ctx);
+            TSRHSSplitSetRHSFunction(petsc_ts,"fast",NULL,(TSRHSFunction)RHSKE,petsc_ctx);
+        }
     }
     // AK: may read/write wfs between constructor and update, but probably don't need this
     VecGetArray(petsc_wf_vec, &wf_.flatarr);
     VecGetArray(petsc_dwf_vec, &dwf_.flatarr);
-
-
 }
 
 
@@ -225,8 +278,19 @@ PetscErrorCode PETSCWavefunctionStepper::RHS(TS ts, PetscReal t, Vec wf_vec, Vec
     // AK: set hamil_wf and wf to contents of wf_vec. turns out both are used in H*psi
     // AK: would be a problem if the RHS function is ever called on different vectors at the same time
     // AK: set_from_vec already contains VecGetArrayRead and VecRestoreArrayRead
-    ctx->s_.hamil_wf->set_from_vec(wf_vec);
     ctx->s_.wf.set_from_vec(wf_vec);
+    if(ctx->s_.ctrl.petsc_tdH) {
+        if (ctx->s_.ctxt_.oncoutpe())
+            cout<<"td H"<<endl;
+        ctx->s_.hamil_wf->set_from_vec(wf_vec);
+    }
+    else {
+        ctx->s_.hamil_wf->set_from_vec(ctx->hamil_wf_vec_);
+        if(ctx->s_.ctxt_.oncoutpe()) {
+            cout<<"static hamiltonian "<<endl;
+        }
+
+    }
 
 #if PETSC_DEBUG
     // AK: print hamil_wf
@@ -240,24 +304,18 @@ PetscErrorCode PETSCWavefunctionStepper::RHS(TS ts, PetscReal t, Vec wf_vec, Vec
 
     // calculate hamil_cd from hamil_wf and update hamil
     ctx->tmap_["charge"].start();
-    ( ctx->ef_.hamil_cd() )->update_density();
+    if(ctx->s_.ctrl.petsc_tdH)
+        ( ctx->ef_.hamil_cd() )->update_density();
     // do I need cd_.update_density(); here???
     ctx->tmap_["charge"].stop();
 
-#if PETSC_DEBUG
-    // AK: print hamil_cd
-    if (ctx->s_.ctxt_.oncoutpe()) {
-        cout << "hamil_cd in RHS: " << endl;
-        for (int i=0; i<10; i++)
-            cout << ctx->ef_.hamil_cd()->rhog[0][i] << "  ";
-        cout << endl;
-    }
-#endif
 
-    ctx->tmap_["efn"].start();
-    ctx->ef_.update_hamiltonian();
-    ctx->ef_.update_vhxc();
-    ctx->tmap_["efn"].stop();
+    if(ctx->s_.ctrl.petsc_tdH) {
+        ctx->tmap_["efn"].start();
+        ctx->ef_.update_hamiltonian();
+        ctx->ef_.update_vhxc();
+        ctx->tmap_["efn"].stop();
+    }
 
 #if PETSC_DEBUG
     // AK output fion and sigm_eks
@@ -283,8 +341,19 @@ PetscErrorCode PETSCWavefunctionStepper::RHS(TS ts, PetscReal t, Vec wf_vec, Vec
     }
 
     // AK: calculate dwf=H*psi
-    // EnergyFunctional::energy(bool compute_hpsi, Wavefunction& dwf, bool compute_forces, vector<vector<double> >& fion, bool compute_stress, valarray<double>& sigma)
-    ctx->ef_.energy(true,ctx->dwf_,false,ctx->fion_,false,ctx->sigma_eks_);	// fion, sigma_eks are passed in from EhrenSampleStepper
+    //ctx->ef_.energy(true,ctx->dwf_,false,ctx->fion_,false,ctx->sigma_eks_);	// fion, sigma_eks are passed in from EhrenSampleStepper
+    {
+        ctx->ef_.clear(ctx->dwf_);
+        if(ctx->s_.ctrl.petsc_Vnl) {
+            ctx->ef_.Vnl(ctx->dwf_);
+        }
+        if(ctx->s_.ctrl.petsc_KE) {
+            ctx->ef_.KE(ctx->dwf_);
+        }
+        if(ctx->s_.ctrl.petsc_Vr) {
+            ctx->ef_.Vr(ctx->dwf_);
+        }
+    }
 
 #if PETSC_DEBUG
     if (ctx->s_.ctxt_.oncoutpe())
@@ -327,7 +396,6 @@ PETSCWavefunctionStepper::~PETSCWavefunctionStepper() {
     PetscFinalize();
 }
 
-/////////////////////////////////////////////////////////////////////////////////
 
 void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
 //   const bool oncoutpe = s_.ctxt_.oncoutpe();
@@ -352,16 +420,6 @@ void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
         cout << "wf_ before update: ";
         for (int i=0; i<10; i++)
             cout << wf_.flatarr[i] << "  ";
-        cout<<"...";
-        for (int i=N-10; i<N; i++)
-            cout << wf_.flatarr[i] << "  ";
-        cout << endl;
-        cout << "dwf_ before update: ";
-        for (int i=0; i<10; i++)
-            cout << dwf_.flatarr[i] << "  ";
-        cout<<"...";
-        for (int i=N-10; i<N; i++)
-            cout << dwf_.flatarr[i] << "  ";
         cout << endl;
 #endif
     }
@@ -372,56 +430,9 @@ void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
             cout<<"petsc_wf_vec before update:"<<endl;
             for (int i=0; i<10; i++)
                 cout << vec_arr[i] << " ";
-            cout<<"...";
-            for (int i=N-10; i<N; i++)
-                cout << vec_arr[i] << " ";
             cout << endl;
         }
         VecRestoreArrayRead(petsc_wf_vec, &vec_arr);
-        Vec tmp;
-        PetscErrorCode ierr=VecDuplicate(petsc_wf_vec,&tmp);
-        if (s_.ctxt_.oncoutpe())
-            cout<<"error code: "<<ierr<<endl;
-        VecCopy(petsc_wf_vec,tmp);
-        if(step==0) {
-            PetscInt j=s_.ctrl.petsc_unit_k;
-            if (j>=N) {
-                if (s_.ctxt_.oncoutpe())
-                    cout<<"index out of range. max index="<<N<<" current index="<<j<<endl;
-                s_.ctxt_.abort(2);
-            }
-            PetscScalar eps=s_.ctrl.petsc_unit_eps;
-            VecSet(tmp,0);
-            VecSetValues(tmp,1,&j,&eps,INSERT_VALUES);
-            VecAssemblyBegin(tmp);
-            VecAssemblyEnd(tmp);
-            const complex<double> * tmp_arr;
-            VecGetArrayRead(tmp, &tmp_arr);
-            if (s_.ctxt_.oncoutpe()) {
-                cout << "tmp:" << endl;
-                for (int i=0; i<10; i++)
-                    cout << tmp_arr[i] << " ";
-                cout<<"...";
-                //for (int i=N-10; i<N; i++)
-                //    cout << tmp_arr[i] << " ";
-                cout << endl;
-            }
-            VecRestoreArrayRead(tmp, &tmp_arr);
-            PetscScalar sum=0;
-            VecSum(tmp,&sum);
-            if (s_.ctxt_.oncoutpe())
-                cout<<"index at "<<j<<" sum tmp: "<<sum<<endl;
-            VecAXPY(petsc_wf_vec,1,tmp);
-
-            PetscViewer   output; /* file to output data to */
-            char name[50];
-            sprintf(name,"evolve/gs_%d.dat",s_.ctrl.petsc_unit_k);
-            PetscViewerBinaryOpen(PETSC_COMM_WORLD,name,FILE_MODE_WRITE,&output);
-            VecView(petsc_wf_vec, output);
-            if (s_.ctxt_.oncoutpe())
-                cout<<"save tmp"<<endl;
-            PetscViewerDestroy(&output);
-        }
     }
 
     // AK: qball may read/write wfs between updates. probably don't need this
@@ -441,8 +452,6 @@ void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
     TSSetMaxTime(petsc_ts, time+tddt_);
 //   TSSolve(petsc_ts, petsc_wf_vec);
 
-    if (s_.ctxt_.oncoutpe())
-        cout << "woc TSStep" << endl;
     // AK: advance once time step
     TSStep(petsc_ts);
 
@@ -466,26 +475,82 @@ void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
 
     Vec petsc_sol;
     TSGetSolution(petsc_ts, &petsc_sol);
-
     wf_.set_from_vec(petsc_sol);
 
-    Vec rhs;
-    VecDuplicate(petsc_dwf_vec,&rhs);
-    VecCopy(petsc_dwf_vec, rhs);
-    VecScale(rhs, -1.0*PETSC_i);
+    //ef_.expKE(wf_,tddt_);
+    //ef_.expVr(wf_,tddt_);
+
     // output the rhs
     if(s_.ctrl.petsc_unit && step%s_.ctrl.petsc_savefreq==0) {
-        if (s_.ctxt_.oncoutpe()) 
-            cout<<"save unit rhs at "<<s_.ctrl.mditer<<endl;
-        PetscViewer   outputfile; /* file to output data to */
-        char filename[50];
-        PetscViewerCreate(PETSC_COMM_WORLD, &outputfile);
-        PetscViewerSetType(outputfile, PETSCVIEWERBINARY);
-        sprintf(filename, "evolve/unit_%d_%d.dat",s_.ctrl.petsc_unit_k,step);
-        PetscViewerFileSetMode(outputfile, FILE_MODE_WRITE);
-        PetscViewerFileSetName(outputfile, filename);
-        VecView(rhs, outputfile);
-        PetscViewerDestroy(&outputfile);
+        std::vector<std::vector<double> > fion;
+        std::valarray<double> sigma;
+        for (PetscInt j=s_.ctrl.petsc_unit_s; j<=s_.ctrl.petsc_unit_e; j++) {
+            if (s_.ctxt_.oncoutpe())
+                cout<<"current index="<<j<<endl;
+            if (j>=N) {
+                if (s_.ctxt_.oncoutpe())
+                    cout<<"index out of range. max index="<<N<<" current index="<<j<<endl;
+                s_.ctxt_.abort(2);
+            }
+            PetscScalar eps=s_.ctrl.petsc_unit_eps;
+            Vec tmp;
+            PetscErrorCode ierr=VecDuplicate(petsc_wf_vec,&tmp);
+            if (s_.ctxt_.oncoutpe())
+                cout<<"error code: "<<ierr<<endl;
+            VecSet(tmp,0);
+            VecSetValues(tmp,1,&j,&eps,INSERT_VALUES);
+            VecAssemblyBegin(tmp);
+            VecAssemblyEnd(tmp);
+            const complex<double> * tmp_arr;
+            VecGetArrayRead(tmp, &tmp_arr);
+            if (s_.ctxt_.oncoutpe()) {
+                cout << "tmp:" << endl;
+                for (int i=0; i<10; i++)
+                    cout << tmp_arr[i] << " ";
+                cout << endl;
+            }
+            VecRestoreArrayRead(tmp, &tmp_arr);
+            PetscScalar sum=0;
+            VecSum(tmp,&sum);
+            if (s_.ctxt_.oncoutpe())
+                cout<<"index at "<<j<<" sum tmp: "<<sum<<endl;
+            VecAXPY(tmp,1,petsc_wf_vec);
+            newwf_.allocate_flat();
+            newwf_.flatten();
+            newwf_.set_from_vec(tmp);
+
+            Vec rhs;
+            ef_.H(newwf_,dwf_,false,fion,false,sigma);
+
+            VecDuplicate(petsc_dwf_vec,&rhs);
+            VecGetArray(rhs, &(dwf_.flatarr));
+            dwf_.flatten();
+            VecRestoreArray(rhs, &(dwf_.flatarr));
+
+            VecScale(rhs, -1.0*PETSC_i);
+
+            const complex<double> * vec_arr;
+            VecGetArrayRead(rhs, &vec_arr);
+            if (s_.ctxt_.oncoutpe()) {
+                cout<<"rhs after H(psi+eps*ek):"<<endl;
+                for (int i=0; i<10; i++)
+                    cout << vec_arr[i] << " ";
+                cout << endl;
+            }
+            VecRestoreArrayRead(rhs, &vec_arr);
+
+            if (s_.ctxt_.oncoutpe())
+                cout<<"save unit rhs at index "<<j<<endl;
+            PetscViewer   outputfile; /* file to output data to */
+            char filename[50];
+            PetscViewerCreate(PETSC_COMM_WORLD, &outputfile);
+            PetscViewerSetType(outputfile, PETSCVIEWERBINARY);
+            sprintf(filename, "evolve/unit_%d_%d.dat",j,step);
+            PetscViewerFileSetMode(outputfile, FILE_MODE_WRITE);
+            PetscViewerFileSetName(outputfile, filename);
+            VecView(rhs, outputfile);
+            PetscViewerDestroy(&outputfile);
+        }
     }
 
 #if PETSC_DEBUG
@@ -495,31 +560,106 @@ void PETSCWavefunctionStepper::update(Wavefunction& dwf) {
             cout << wf_.flatarr[i] << "  ";
         cout << endl;
 
-        cout << "dwf_ after update: ";
-        for (int i=0; i<10; i++)
-            cout << dwf_.flatarr[i] << "  ";
-        cout << endl;
+//        cout << "dwf_ after update: ";
+//        for (int i=0; i<10; i++)
+//            cout << dwf_.flatarr[i] << "  ";
+//        cout << endl;
     }
 #endif
 
-//   wf_.unflatten();	// copy wf_.flatarr (aka petsc_wf_vec) into wf_.sd_
-
-    /*
-       // AK: test methods to flatten and unflatten wf
-       wf_.set_from_vec(petsc_wf_vec);		// copy vec into wf_.sd_
-       wf_.flatten();				// copy wf_.sd_ into wf_.flatarr, also array held by petsc_wf_vec
-       wf_.unflatten();				// copy wf_.flatarr back into wf_.sd_
-    */
-
-//   tmap_["petsc"].stop();   // timing
 }
 //
 
+//////////////////////////////////////////////////////////////
+PetscErrorCode PETSCWavefunctionStepper::RHSVrVnl(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_) {
+    PETSC_CTX * ctx=(PETSC_CTX*) ctx_;
+    ctx->s_.wf.set_from_vec(wf_vec);
+    if(ctx->s_.ctrl.petsc_tdH) {
+        if (ctx->s_.ctxt_.oncoutpe())
+            cout<<"VrVnl td H"<<endl;
+        ctx->s_.hamil_wf->set_from_vec(wf_vec);
+    }
+    else {
+        ctx->s_.hamil_wf->set_from_vec(ctx->hamil_wf_vec_);
+        if(ctx->s_.ctxt_.oncoutpe()) {
+            cout<<"static VrVnl hamiltonian "<<endl;
+        }
+
+    }
+    if(ctx->s_.ctrl.petsc_tdH) {
+        ( ctx->ef_.hamil_cd() )->update_density();
+        // do I need cd_.update_density(); here???
+        ctx->tmap_["charge"].stop();
+        ctx->tmap_["efn"].start();
+        ctx->ef_.update_hamiltonian();
+        ctx->ef_.update_vhxc();
+        ctx->tmap_["efn"].stop();
+    }
+    ctx->ef_.clear(ctx->dwf_);
+    if(ctx->s_.ctrl.petsc_Vnl)
+        ctx->ef_.Vnl(ctx->dwf_);
+    if(ctx->s_.ctrl.petsc_Vr)
+        ctx->ef_.Vr(ctx->dwf_);
+    VecGetArray(ctx->dwf_vec_, &(ctx->dwf_.flatarr));
+    ctx->dwf_.flatten();
+    VecRestoreArray(ctx->dwf_vec_, &(ctx->dwf_.flatarr));
+
+    VecCopy(ctx->dwf_vec_, rhs);
+    VecScale(rhs, -1.0*PETSC_i);
+    PetscFunctionReturn(0);
+}
+
+PetscErrorCode PETSCWavefunctionStepper::RHSKE(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_) {
+    PETSC_CTX * ctx=(PETSC_CTX*) ctx_;
+    ctx->s_.wf.set_from_vec(wf_vec);
+    if(ctx->s_.ctrl.petsc_tdH) {
+        if (ctx->s_.ctxt_.oncoutpe())
+            cout<<"KE td H"<<endl;
+        ctx->s_.hamil_wf->set_from_vec(wf_vec);
+    }
+    else {
+        ctx->s_.hamil_wf->set_from_vec(ctx->hamil_wf_vec_);
+        if(ctx->s_.ctxt_.oncoutpe()) {
+            cout<<"static KE hamiltonian "<<endl;
+        }
+
+    }
+    //I don't need to update the vhxc here?
+    //if(ctx->s_.ctrl.petsc_tdH) {
+    //    ( ctx->ef_.hamil_cd() )->update_density();
+    //    // do I need cd_.update_density(); here???
+    //    ctx->tmap_["charge"].stop();
+    //    ctx->tmap_["efn"].start();
+    //    ctx->ef_.update_hamiltonian();
+    //    ctx->ef_.update_vhxc();
+    //    ctx->tmap_["efn"].stop();
+    //}
+    ctx->ef_.clear(ctx->dwf_);
+    if(ctx->s_.ctrl.petsc_KE)
+        ctx->ef_.KE(ctx->dwf_);
+    VecGetArray(ctx->dwf_vec_, &(ctx->dwf_.flatarr));
+    ctx->dwf_.flatten();
+    VecRestoreArray(ctx->dwf_vec_, &(ctx->dwf_.flatarr));
+
+    VecCopy(ctx->dwf_vec_, rhs);
+    VecScale(rhs, -1.0*PETSC_i);
+    PetscFunctionReturn(0);
+}
+
+
+
+//////////////////////////////////////////////////////////////
 PetscErrorCode PETSCWavefunctionStepper::RegisterMyRKC2(void) {
     {
         const PetscReal A[5][5] = {{0, 0, 0, 0, 0}, {0.0315862022077577455912627, 0, 0, 0,0}, {-0.128686897689645502255899, 0.255809213036559752204734, 0, 0,0}, {-0.562734368899226551546441, 0.601462745045115244568001,0.298892036910798860068196, 0, 0}, {-1.19932558300501514367783,0.942407757213538464197643, 0.621901167048249099059611,0.264501915438166696455688, 0}};
         const PetscReal B[5]= {-2.00026220580022632018238, 1.27250824704230238438162,0.940925234639918312902377, 0.531421930235961355176752, 0.255406793882044267721627};
         PetscCall(TSRKRegister("myrkc2",2,5,&A[0][0],B,NULL,NULL,0,NULL));
     }
+    PetscFunctionReturn(0);
+}
+PetscErrorCode PETSCWavefunctionStepper::RegisterMyRK5(void) {
+    const PetscReal A[6][6]= {{0,0,0,0,0,0},{(32.0)/(129.0),0,0,0,0,0},{(7.0)/(64.0),(43.0)/(192.0),0,0,0,0},{(43.0)/(256.0),-(43.0)/(256.0),0.5,0,0,0},{(23.0)/(96.0),-(559.0)/(864.0),(25.0)/(27.0),(4.0)/(27.0),0,0},{-(417.0)/(704.0),(1505.0)/(704),1,-4,(27.0)/(11),0}};
+    const PetscReal B[6]= {(11.0)/(120.0),(27.0)/(40.0),(8.0)/(15.0),(27.0)/(40.0),(11.0)/(120.0)};
+    PetscCall(TSRKRegister("myrk5",5,6,&A[0][0],B,NULL,NULL,0,NULL));
     PetscFunctionReturn(0);
 }

@@ -38,6 +38,7 @@
 #include "FORKTDWavefunctionStepper.h"
 #include "TDEULERWavefunctionStepper.h"
 #include "ExponentialWavefunctionStepper.h"
+#include "SPOWavefunctionStepper.h"
 #include "PETSCWavefunctionStepper.h"
 #include "SDIonicStepper.h"
 #include "SDAIonicStepper.h"
@@ -166,6 +167,8 @@ void EhrenSampleStepper::step(int niter) {
     //EWD TDDFT DIFF
     // initialize occupation
     //wf.update_occ(s_.ctrl.smearing_width,s_.ctrl.smearing_ngauss);
+    if(oncoutpe)
+        cout<<"wf dyn "<<wf_dyn<<endl;
 
     WavefunctionStepper* wf_stepper = 0;
     if ( wf_dyn == "TDEULER" )
@@ -187,6 +190,8 @@ void EhrenSampleStepper::step(int niter) {
 
         wf_stepper = new SOTDWavefunctionStepper(wf,s_.ctrl.tddt,tmap,&wfdeque);
     }
+
+
     else if ( wf_dyn == "SORKTD" )
         wf_stepper = new SORKTDWavefunctionStepper(wf,s_.ctrl.tddt,tmap,&wfdeque);
     else if ( wf_dyn == "FORKTD" )
@@ -197,6 +202,8 @@ void EhrenSampleStepper::step(int niter) {
         wf_stepper = new PETSCWavefunctionStepper(wf,s_.ctrl.tddt,tmap,ef_,s_,fion,sigma_eks);
     else if ( wf_dyn == "AETRS" )
         wf_stepper = new ExponentialWavefunctionStepper(wf,s_.ctrl.tddt,tmap,ef_,s_,true);
+    else if ( wf_dyn == "SPO" )
+        wf_stepper = new SPOWavefunctionStepper(wf,s_.ctrl.tddt,tmap,ef_,s_);
     else {
         if ( oncoutpe )
             cout << "<ERROR> EhrenSampleStepper:  undefined wf_dyn = " << wf_dyn << "! </ERROR>" << endl;
@@ -277,6 +284,20 @@ void EhrenSampleStepper::step(int niter) {
         currd_.update_current(ef_, dwf, false);
     }
 
+    if (oncoutpe) {
+        const Basis& basis = wf.sd(0,0)->basis();
+        cout<<"Wavefunction basis"<<basis.np(0)<<" "<<basis.np(1)<<" "<<basis.np(2)<<endl;
+        cout<<" total number of gvector in current processor "<<basis.localsize()<<endl;
+        D3vector tmp=basis.idxmax(0)*s_.wf.cell().b(0)+basis.idxmax(1)*s_.wf.cell().b(1)+basis.idxmax(2)*s_.wf.cell().b(2);
+        cout<<"dt_max from kinetic energy cutoff "<<2/pow(tmp[0],2)<<" "<<2/pow(tmp[1],2)<<" "<<2/pow(tmp[2],2)<<endl;
+        double dh=length(s_.wf.cell().a(0))/basis.np(0);
+        cout<<dh*dh/(2*M_PI*M_PI)<<endl;
+//        cout<<"real real space grid "<<pow(length(s_.wf.cell().a(0))/basis.np(0),2)/(2*M_PI*M_PI)<<" "<<pow(length(s_.wf.cell().a(1))/basis.np(1),2)/(2*M_PI*M_PI)<<" "<<pow(length(s_.wf.cell().a(2))/basis.np(2),2)/(2*M_PI*M_PI)<<endl;
+        if(ef_.vp) {
+            cout<< "dt_max from vector potential is "<<1/s_.ctrl.laser_freq<<endl;
+        }
+
+    }
 
     for ( int iter = 0; iter < niter; iter++ ) {
 
@@ -586,11 +607,11 @@ void EhrenSampleStepper::step(int niter) {
 
         // AS: update the Hamiltonian, the potential, and the energy before propagation
         // starts and/or after the mixing
+
         tmap["efn"].start();
         if(ef_.vp) ef_.vector_potential_changed(compute_stress);
         ef_.update_hamiltonian();
         ef_.update_vhxc();
-        //ef_.update_exc_ehart_eps();
         tmap["efn"].stop();
 
         // AS: the first step is an EULER one in the case of the second-order propagation
@@ -938,9 +959,35 @@ void EhrenSampleStepper::step(int niter) {
         // }
         // }
 
+        //hack
+        if(oncoutpe) {
+            cout<<"wf coef before ";
+            for(int i=0; i<10; i++) {
+                cout<<s_.wf.sd(0,0)->c()[i]<<" ";
+            }
+            cout<<endl;
+        }
         tmap["wfupdate"].start();
         wf_stepper->update(dwf);
         tmap["wfupdate"].stop();
+
+        //hack
+        if(oncoutpe) {
+            cout<<"wf coef after vhxc ";
+            for(int i=0; i<10; i++) {
+                cout<<s_.wf.sd(0,0)->c()[i]<<" ";
+            }
+            cout<<endl;
+            cout<<"Vr after vhxc ";
+            for(int i=0; i<10; i++) {
+                cout<<ef_.v_r[0][i]<<" ";
+            }
+            cout<<endl;
+            cout << "hamil_cd: " << endl;
+            for (int i=0; i<10; i++)
+                cout << ef_.hamil_cd()->rhog[0][i] << "  ";
+            cout << endl;
+        }
 
 
         // update ultrasoft functions if needed, call gram
@@ -998,7 +1045,7 @@ void EhrenSampleStepper::step(int niter) {
 
 
         // AS: for the correct output of the energy
-        if ( s_.ctrl.non_selfc_energy && (wf_dyn!="SORKTD") && (wf_dyn!="FORKTD") && (wf_dyn!="PETSC") && (wf_dyn!="PETSC_ADAPT")  ) {
+        if ( s_.ctrl.non_selfc_energy && (wf_dyn!="SORKTD") && (wf_dyn!="FORKTD") && (wf_dyn!="PETSC") && (wf_dyn!="PETSC_ADAPT") && (wf_dyn!="SPO") ) {
             // AS: the wave functions used in the Hamiltonian are NOT updated here
             tmap["charge"].start();
             cd_.update_density();
@@ -1028,10 +1075,12 @@ void EhrenSampleStepper::step(int niter) {
 
         // AS: after the first set of non-selfconsistent steps the Hamiltonian is no longer fixed
         // AS: this makes the Hamiltonian time dependent
-        (*s_.hamil_wf)=s_.wf;
-        tmap["charge"].start();
-        ( ef_.hamil_cd() )->update_density();
-        tmap["charge"].stop();
+        if(s_.ctrl.petsc_tdH){
+            (*s_.hamil_wf)=s_.wf;
+            tmap["charge"].start();
+            ( ef_.hamil_cd() )->update_density();
+            tmap["charge"].stop();
+        }
 
         // AS: keep the previous wave function
         if ( wf_dyn == "SOTD" ) *(s_.wfv)=*wfdeque[0];

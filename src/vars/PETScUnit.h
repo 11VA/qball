@@ -50,31 +50,29 @@ public:
     int set ( int argc, char **argv ) {
         if ( argc < 3) {
             if ( ui->oncoutpe() )
-                cout << " <ERROR> petsc_unit takes 2 or more values: eps unit_k savefreq </ERROR>" << endl;
+                cout << " <ERROR> petsc_unit takes 2 or more values: eps unit_s unit_e savefreq </ERROR>" << endl;
             return 1;
         }
 
         float v = atof(argv[1]);
         s->ctrl.petsc_unit_eps = v;
-        s->ctrl.petsc_unit_k = atoi(argv[2]);
+        s->ctrl.petsc_unit_s = atoi(argv[2]);
+        s->ctrl.petsc_unit_e = atoi(argv[3]);
         if (argc>3){
-            s->ctrl.petsc_savefreq = atoi(argv[3]);
+            s->ctrl.petsc_savefreq = atoi(argv[4]);
             if(s->ctrl.petsc_savefreq==0){
                 s->ctrl.petsc_savefreq=1;
             }
-            if (argc>4){
-                if (strcmp(argv[4],"KE")==0){
-                    s->ctrl.petsc_KE=true;
-                    s->ctrl.petsc_Vr=false;
-                }
-                else if(strcmp(argv[4],"KEVr")==0){
-                    s->ctrl.petsc_KE=true;
-                    s->ctrl.petsc_Vr=true;
-                }
-                else if(strcmp(argv[4],"Vr")==0){
-                    s->ctrl.petsc_KE=false;
-                    s->ctrl.petsc_Vr=true;
-                }
+            if (argc>5){
+                int c=atoi(argv[5]);
+                s->ctrl.petsc_KE=c/100;
+                s->ctrl.petsc_Vr=(c/10)%10;
+                s->ctrl.petsc_Vnl=c%10;
+            }
+            if (argc>6){
+                string u = argv[6];
+                if (u=="static")
+                    s->ctrl.petsc_tdH=0;
             }
         }
         s->ctrl.petsc_unit = true;
@@ -88,20 +86,24 @@ public:
         st << setw(10) << name() << "eps = ";
         st.setf(ios::right,ios::adjustfield);
         st << setw(10) << s->ctrl.petsc_unit_eps<<" unit_k = ";
-        st << setw(10) << s->ctrl.petsc_unit_k;
+        st << setw(10) << s->ctrl.petsc_unit_s;
+        st << setw(10) << s->ctrl.petsc_unit_e;
         st << setw(10) << s->ctrl.petsc_savefreq;
         st << setw(10) <<"compute KE="<<s->ctrl.petsc_KE;
         st << setw(10) <<"compute Vr="<<s->ctrl.petsc_Vr;
+        st << setw(10) <<"compute Vnl="<<s->ctrl.petsc_Vnl;
         return st.str();
     }
 
     PETScUnit(Sample *sample) : s(sample) {
         s->ctrl.petsc_unit_eps = 0;
-        s->ctrl.petsc_unit_k = 0;
+        s->ctrl.petsc_unit_s = 0;
+        s->ctrl.petsc_unit_e = 0;
         s->ctrl.petsc_savefreq = 1;
         s->ctrl.petsc_unit = false;
         s->ctrl.petsc_Vr=true;
         s->ctrl.petsc_KE=true;
+        s->ctrl.petsc_Vnl=true;
     };
 };
 #endif

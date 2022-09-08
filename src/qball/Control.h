@@ -49,11 +49,14 @@ struct Control
   double petsc_adapt_atol=-1;
   double petsc_adapt_rtol=-1;
   float petsc_unit_eps=0;
-  int petsc_unit_k=-1;
+  int petsc_unit_s=0;
+  int petsc_unit_e=0;
   int petsc_savefreq=1;
   bool petsc_unit=false;
   bool petsc_KE=true;
   bool petsc_Vr=true;
+  bool petsc_Vnl=true;
+  bool petsc_tdH=1;
 
   bool etrs_merge_exp;
   int etrs_order;

@@ -82,13 +82,14 @@ public:
                 v == "FORKTD"  ||
                 v == "PETSC"   ||
                 v == "ETRS"    ||
+                v == "SPO"    ||
                 v == "AETRS" ) ) {
             if ( ui->oncoutpe() )
                 cout << " wf_dyn must be in [LOCKED,SD,PSD,PSDA,RMMDIIS,JD,MD,TDEULER,SOTD,SORKTD,FORKTD,ETRS,AETRS,PETSC]" << endl;
             return 1;
         }
 
-        if (v == "TDEULER" || v == "SOTD" || v == "SORKTD" || v == "FORKTD" || v == "ETRS" || v == "AETRS" || v == "PETSC") {
+        if (v == "TDEULER" || v == "SOTD" || v == "SORKTD" || v == "FORKTD" || v == "ETRS" || v == "AETRS" || v == "PETSC"||v=="SPO") {
             s->ctrl.tddft_involved = true;
             if (!( s->wf.force_complex_set() )) {
                 cout << "WfDyn::wave functions must be complex to propagate them in time" << endl

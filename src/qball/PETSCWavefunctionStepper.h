@@ -33,11 +33,11 @@
 #define PETSCWAVEFUNCTIONSTEPPER_H
 
 #include "EnergyFunctional.h"
-#include "SelfConsistentPotential.h"
 #include "Wavefunction.h"
 #include "WavefunctionStepper.h"
 #include <deque>
 
+#include <petscsys.h>
 #include <petscts.h>
 
 using namespace std;
@@ -61,7 +61,6 @@ class PETSCWavefunctionStepper : public WavefunctionStepper {
 private:
 
     double tddt_;
-    std::vector<SelfConsistentPotential> potential_;
     Wavefunction newwf_;
     Wavefunction dwf_;
 
@@ -84,6 +83,10 @@ public:
     static PetscErrorCode dummy_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
     static PetscErrorCode RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_ );
     static PetscErrorCode RegisterMyRKC2(void);
+    static PetscErrorCode RegisterMyRK5(void);
+
+    static PetscErrorCode RHSKE(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
+    static PetscErrorCode RHSVrVnl(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
 
     //static PetscErrorCode unit_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_); 
     //static PetscErrorCode unit_evolve_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);

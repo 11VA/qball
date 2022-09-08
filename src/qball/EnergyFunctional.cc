@@ -1507,6 +1507,9 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
         for (int i=0; i<6; i++)
             sigma_enl[i] = 0.0;
 
+    if(s_.ctxt_.oncoutpe()) {
+        cout<<"compute KE="<<s_.ctrl.petsc_KE<<" compute Vr="<<s_.ctrl.petsc_Vr<<" compute Vnl="<<s_.ctrl.petsc_Vnl<<endl;
+    }
     for ( int ispin = 0; ispin < psi.nspin(); ispin++ ) {
         if (psi.spinactive(ispin)) {
             for (int kloc=0; kloc<psi.nkptloc(); kloc++) {
@@ -1519,9 +1522,17 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
                 //cout << "EF.DEBAND deband = " << deband << "    , fac = " << fac << endl;
 
                 double wt = dwf.weight(dwf.kptloc(kloc));
-                enlsum[0] += wt*nlp[ispin][kloc]->energy(*psi.sdloc(ispin, kloc), compute_hpsi,*dwf.sdloc(ispin,kloc),
-                             compute_forces, fion_nl, compute_stress,
-                             tsigma_enl,veff_g[ispin]);
+                if (s_.ctrl.petsc_Vnl) {
+                    //           if (true) {
+                    enlsum[0] += wt*nlp[ispin][kloc]->energy(*psi.sdloc(ispin, kloc), compute_hpsi,*dwf.sdloc(ispin,kloc),
+                                 compute_forces, fion_nl, compute_stress,
+                                 tsigma_enl,veff_g[ispin]);
+                }
+                else {
+                    enlsum[0] += wt*nlp[ispin][kloc]->energy(*psi.sdloc(ispin, kloc), false,*dwf.sdloc(ispin,kloc),
+                                 compute_forces, fion_nl, compute_stress,
+                                 tsigma_enl,veff_g[ispin]);
+                }
                 enlsum[1] += wt;
                 if (compute_forces) {
                     for (int is=0; is<nsp_; is++) {
@@ -1543,7 +1554,6 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
     if (psi.nspin() == 2)
         enlsum[1] *= 0.5;
     enl_ = enlsum[0]/enlsum[1];
-
     if (compute_forces) {
         for (int is=0; is<nsp_; is++)
             dwf.wfcontext()->dsum('r',3*na_[is],1,&fion[is][0],3*na_[is]);
@@ -1659,9 +1669,6 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
 
     if ( compute_hpsi ) {
         tmap["hpsi"].start();
-        if(s_.ctxt_.oncoutpe()){
-            cout<<"compute KE="<<s_.ctrl.petsc_KE<<" compute Vr="<<s_.ctrl.petsc_Vr<<endl;
-        }
         //assert(psi.nspin()==1);
         for ( int ispin = 0; ispin < psi.nspin(); ispin++ ) {
             if (psi.spinactive(ispin)) {
@@ -1682,6 +1689,7 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
 
                         // Laplacian
                         if (s_.ctrl.petsc_KE) {
+                            //if (true) {
                             if ( use_confinement ) {
                                 for ( int n = 0; n < sd.nstloc(); n++ ) {
                                     assert(cfp[ispin][ikp]!=0); // cfp must be non-zero if this ikp active
@@ -1705,7 +1713,7 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
                                         // AS: for each individual state n, to the wave function during the time propgation
                                         // AS: by subtracting the phase: cp -= 1.0 * as_renorm[n] / 27.2116 * c[ig+mloc*n];
                                         // AS: this should prevent the time propagation from blowing up
-                                        // if (energy_renorm) 
+                                        // if (energy_renorm)
                                         // AS: renormalize each state individually
                                         // cp[ig+mloc*n] -= 1.0 * as_renorm[n] / 27.2116 * c[ig+mloc*n];
                                         // AS: renormalize all states with the same value
@@ -1720,6 +1728,7 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
                         if(vp) delete [] kpg2;
 
                         if (s_.ctrl.petsc_Vr) {
+                            //if (true) {
                             sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
                         }
                     }
@@ -2165,4 +2174,387 @@ void EnergyFunctional::print_memory(ostream&os, double& totsum, double& locsum) 
 ostream& operator<< ( ostream& os, const EnergyFunctional& e ) {
     e.print(os);
     return os;
+}
+////////////////////////////////////////////////////////////////////////////////
+void EnergyFunctional::H(const Wavefunction& wf, Wavefunction& dwf, bool compute_forces, vector<vector<double> >& fion, bool compute_stress, valarray<double>& sigma) {
+    const double fpi = 4.0 * M_PI;
+
+    const UnitCell& cell(wf.cell());
+    const double omega = cell.volume();
+    const double omega_inv = 1.0 / omega;
+    const int ngloc = vbasis_->localsize();
+    const double *const g2i = vbasis_->g2i_ptr();
+    const bool use_confinement = s_.ctrl.ecuts > 0.0;
+
+    bool compute_hpsi=true;
+
+    if ( compute_hpsi ) {
+        for ( int ispin = 0; ispin < dwf.nspin(); ispin++ ) {
+            if (dwf.spinactive(ispin)) {
+                for ( int ikp=0; ikp<dwf.nkp(); ikp++) {
+                    if (dwf.kptactive(ikp)) {
+                        assert(dwf.sd(ispin,ikp) != 0);
+                        dwf.sd(ispin,ikp)->c().clear();
+                    }
+                }
+            }
+        }
+    }
+
+    if (s_.ctxt_.oncoutpe() && compute_hpsi) {
+        cout << "initial wf" << endl;
+        for (int i=0; i<10; i++)
+            cout << wf.sd(0,0)->c()[i] << " ";
+        cout << endl;
+    }
+
+#if PETSC_DEBUG
+    // AK: debug
+    if (s_.ctxt_.oncoutpe() && compute_hpsi) {
+        cout << "computing Hpsi" << endl;
+        cout << "dwf after clear" << endl;
+        for (int i=0; i<10; i++)
+            cout << dwf.sd(0,0)->c()[i] << " ";
+        cout << endl;
+    }
+#endif
+
+    // kinetic energy
+    tmap["ekin"].start();
+
+    // compute ekin, confinement energy, stress from ekin and econf
+    // ekin = sum_G |c_G|^2  G^2
+    // econf = sum_G |c_G|^2 fstress[G]
+    // stress_ekin_ij = (1/Omega) sum_G |c_G|^2 * 2 * G_i * G_j
+    // stress_econf_ij = (1/Omega) sum_G |c_G|^2 * dfstress[G] * G_i * G_j
+    ekin_ = 0.0;
+    econf_ = 0.0;
+    sigma_ekin = 0.0;
+    sigma_econf = 0.0;
+    valarray<double> sum(0.0,14), tsum(0.0,14);
+    sum /= wf.weightsum();
+
+    // sum contains the contributions to ekin, etc.. from this task
+    wf.wfcontext()->dsum(14,1,&sum[0],14);
+
+    ekin_  = sum[0];
+    econf_ = sum[7];
+
+    tmap["ekin"].stop();
+
+    vector<vector<double> > fion_nl;
+
+    // Non local energy
+    tmap["nonlocal"].start();
+    // calculate nonlocal energy, averaged over all kpoints on local sdcontext
+    double enlsum[2] = {0.0, 0.0};
+
+    // temporary array for averaging non-local stress over k-points
+    valarray<double> tsigma_enl;
+    tsigma_enl.resize(6);
+
+    for ( int ispin = 0; ispin < wf.nspin(); ispin++ ) {
+        if (wf.spinactive(ispin)) {
+            for (int kloc=0; kloc<wf.nkptloc(); kloc++) {
+
+                //ewd DEBUG:  calculate v_r*rhor to compare against PWSCF deband
+                double wt = dwf.weight(dwf.kptloc(kloc));
+                if(s_.ctrl.petsc_Vnl) {
+                    enlsum[0] += wt*nlp[ispin][kloc]->energy(*wf.sdloc(ispin, kloc), compute_hpsi,*dwf.sdloc(ispin,kloc),
+                                 compute_forces, fion_nl, compute_stress,
+                                 tsigma_enl,veff_g[ispin]);
+                }
+                else {
+                    enlsum[0] += wt*nlp[ispin][kloc]->energy(*wf.sdloc(ispin, kloc), false,*dwf.sdloc(ispin,kloc),
+                                 compute_forces, fion_nl, compute_stress,
+                                 tsigma_enl,veff_g[ispin]);
+
+                }
+                enlsum[1] += wt;
+            }
+        }
+    }
+    dwf.wfcontext()->dsum('r',2,1,&enlsum[0],2);     // weighted average over all kpoints
+    assert(enlsum[1] != 0.0);
+    if (wf.nspin() == 2)
+        enlsum[1] *= 0.5;
+    enl_ = enlsum[0]/enlsum[1];
+#if PETSC_DEBUG
+    // AK: debug
+    if (s_.ctxt_.oncoutpe() && compute_hpsi) {
+        cout << "dwf after non local energy" << endl;
+        for (int i=0; i<10; i++)
+            cout << dwf.sd(0,0)->c()[i] << " ";
+        cout << endl;
+    }
+#endif
+
+    if ( compute_hpsi ) {
+        tmap["hpsi"].start();
+        for ( int ispin = 0; ispin < wf.nspin(); ispin++ ) {
+            if (wf.spinactive(ispin)) {
+                for ( int ikp=0; ikp<wf.nkp(); ikp++) {
+                    if (wf.kptactive(ikp)) {
+                        assert(wf.sd(ispin,ikp) != 0);
+                        const SlaterDet& sd = *(wf.sd(ispin,ikp));
+                        SlaterDet& sdp = *(dwf.sd(ispin,ikp));
+                        const ComplexMatrix& c = sd.c();
+                        const Basis& wfbasis = sd.basis();
+
+                        ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
+                        const int mloc = cp.mloc();
+                        const double* kpg2 = wfbasis.kpg2_ptr();
+                        const int ngwloc = wfbasis.localsize();
+
+                        // Laplacian
+                        if(s_.ctrl.petsc_KE) {
+                            if ( use_confinement ) {
+                                for ( int n = 0; n < sd.nstloc(); n++ ) {
+                                    assert(cfp[ispin][ikp]!=0); // cfp must be non-zero if this ikp active
+                                    const valarray<double>& fstress = cfp[ispin][ikp]->fstress();
+                                    for ( int ig = 0; ig < ngwloc; ig++ ) {
+                                        cp[ig+mloc*n] += 0.5 * ( kpg2[ig] + fstress[ig] ) *
+                                                         c[ig+mloc*n];
+                                    }
+                                }
+                            }
+                            else {
+                                for ( int n = 0; n < sd.nstloc(); n++ ) {
+                                    for ( int ig = 0; ig < ngwloc; ig++ ) {
+                                        cp[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
+                                        //                     cp[ig+mloc*n] += 0; //unit vector, g=0, laplacian is 0.
+
+                                    }
+                                }
+                            }
+                        }
+
+#if PETSC_DEBUG
+                        // AK: debug
+                        if (s_.ctxt_.oncoutpe() && compute_hpsi) {
+                            cout << "dwf after laplacian" << endl;
+                            for (int i=0; i<10; i++)
+                                cout << dwf.sd(ispin,ikp)->c()[i] << " ";
+                            cout << endl;
+                        }
+#endif
+
+
+                        if(s_.ctrl.petsc_Vr) {
+                            sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
+
+                        }
+
+#if PETSC_DEBUG
+                        // AK: debug
+                        if (s_.ctxt_.oncoutpe() && compute_hpsi) {
+                            cout << "dwf after v_r" << endl;
+                            for (int i=0; i<10; i++)
+                                cout << dwf.sd(ispin,ikp)->c()[i] << " ";
+                            cout << endl;
+                        }
+#endif
+                    }
+                }
+            }
+        }
+        tmap["hpsi"].stop();
+    } // if compute_hpsi
+}
+
+void EnergyFunctional::KE(Wavefunction& dwf) {
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
+        if (wf_.spinactive(ispin)) {
+            for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
+                if (wf_.kptactive(ikp)) {
+                    assert(wf_.sd(ispin,ikp) != 0);
+                    const SlaterDet& sd = *(wf_.sd(ispin,ikp));
+                    SlaterDet& sdp = *(dwf.sd(ispin,ikp));
+                    const ComplexMatrix& c = sd.c();
+                    const Basis& wfbasis = sd.basis();
+                    ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
+                    const int mloc = cp.mloc();
+                    const double* kpg2 = wfbasis.kpg2_ptr();
+                    const int ngwloc = wfbasis.localsize();
+                    // Laplacian
+                    if(s_.ctrl.petsc_KE) {
+                        for ( int n = 0; n < sd.nstloc(); n++ ) {
+                            for ( int ig = 0; ig < ngwloc; ig++ ) {
+                                cp[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
+                                //                     cp[ig+mloc*n] += 0; //unit vector, g=0, laplacian is 0.
+
+                            }
+                        }
+                    }
+#if PETSC_DEBUG
+                    // AK: debug
+                    if (s_.ctxt_.oncoutpe()) {
+                        cout << "dwf after laplacian" << endl;
+                        for (int i=0; i<10; i++)
+                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
+                        cout << endl;
+                    }
+#endif
+                }
+            }
+        }
+    }
+
+}
+void EnergyFunctional::Vr(Wavefunction& dwf) {
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
+        if (wf_.spinactive(ispin)) {
+            for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
+                if (wf_.kptactive(ikp)) {
+                    assert(wf_.sd(ispin,ikp) != 0);
+                    const SlaterDet& sd = *(wf_.sd(ispin,ikp));
+                    SlaterDet& sdp = *(dwf.sd(ispin,ikp));
+                    const ComplexMatrix& c = sd.c();
+                    const Basis& wfbasis = sd.basis();
+
+                    ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
+                    const int mloc = cp.mloc();
+                    const double* kpg2 = wfbasis.kpg2_ptr();
+                    const int ngwloc = wfbasis.localsize();
+                    if(s_.ctrl.petsc_Vr) {
+                        sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
+                    }
+#if PETSC_DEBUG
+                    // AK: debug
+                    if (s_.ctxt_.oncoutpe()) {
+                        cout << "dwf after v_r" << endl;
+                        for (int i=0; i<10; i++)
+                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
+                        cout << endl;
+                    }
+#endif
+                }
+            }
+        }
+    }
+
+}
+////////////////////////////////////////////////
+void EnergyFunctional::clear(Wavefunction& dwf) {
+        for ( int ispin = 0; ispin < dwf.nspin(); ispin++ ) {
+            if (dwf.spinactive(ispin)) {
+                for ( int ikp=0; ikp<dwf.nkp(); ikp++) {
+                    if (dwf.kptactive(ikp)) {
+                        assert(dwf.sd(ispin,ikp) != 0);
+                        dwf.sd(ispin,ikp)->c().clear();
+                    }
+                }
+            }
+        }
+}
+void EnergyFunctional::Vnl(Wavefunction& dwf) {
+    vector<vector<double> > fion_nl;
+    valarray<double> tsigma_enl;
+    tsigma_enl.resize(6);
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
+        if (wf_.spinactive(ispin)) {
+            for (int kloc=0; kloc<wf_.nkptloc(); kloc++) {
+
+                //ewd DEBUG:  calculate v_r*rhor to compare against PWSCF deband
+                nlp[ispin][kloc]->energy(*wf_.sdloc(ispin, kloc), s_.ctrl.petsc_Vnl,*dwf.sdloc(ispin,kloc),
+                                         false, fion_nl, false,
+                                         tsigma_enl,veff_g[ispin]);
+
+            }
+        }
+    }
+#if PETSC_DEBUG
+    // AK: debug
+    if (s_.ctxt_.oncoutpe() ) {
+        cout << "dwf after non local energy" << endl;
+        for (int i=0; i<10; i++)
+            cout << dwf.sd(0,0)->c()[i] << " ";
+        cout << endl;
+    }
+#endif
+}
+
+void EnergyFunctional::expKE(Wavefunction& dwf,const double dt) {
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
+        if (wf_.spinactive(ispin)) {
+            for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
+                if (wf_.kptactive(ikp)) {
+                    assert(wf_.sd(ispin,ikp) != 0);
+                    const SlaterDet& sd = *(wf_.sd(ispin,ikp));
+                    SlaterDet& sdp = *(dwf.sd(ispin,ikp));
+                    const ComplexMatrix& c = sd.c();
+                    const Basis& wfbasis = sd.basis();
+                    ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
+                    const int mloc = cp.mloc();
+                    const double* kpg2 = wfbasis.kpg2_ptr();
+                    const int ngwloc = wfbasis.localsize();
+                    // Laplacian
+                    if(s_.ctrl.petsc_KE) {
+                        for ( int n = 0; n < sd.nstloc(); n++ ) {
+                            for ( int ig = 0; ig < ngwloc; ig++ ) {
+                                cp[ig+mloc*n] = exp(complex<double>(0,-0.5*kpg2[ig]*dt))*cp[ig+mloc*n];
+                                //                     cp[ig+mloc*n] += 0; //unit vector, g=0, laplacian is 0.
+
+                            }
+                        }
+                    }
+#if PETSC_DEBUG
+                    // AK: debug
+                    if (s_.ctxt_.oncoutpe()) {
+                        cout << "dwf after laplacian" << endl;
+                        for (int i=0; i<10; i++)
+                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
+                        cout << endl;
+                    }
+#endif
+                }
+            }
+        }
+    }
+}
+void EnergyFunctional::expVr(Wavefunction& dwf,const double dt) {
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
+        if (wf_.spinactive(ispin)) {
+            for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
+                if (wf_.kptactive(ikp)) {
+                    assert(wf_.sd(ispin,ikp) != 0);
+                    const SlaterDet& sd = *(wf_.sd(ispin,ikp));
+                    SlaterDet& sdp = *(dwf.sd(ispin,ikp));
+                    const ComplexMatrix& c = sd.c();
+                    const Basis& wfbasis = sd.basis();
+
+                    ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
+                    const int mloc = cp.mloc();
+                    const double* kpg2 = wfbasis.kpg2_ptr();
+                    const int ngwloc = wfbasis.localsize();
+                    FourierTransform ft(wfbasis,wfbasis.np(0),wfbasis.np(1),wfbasis.np(2));
+                    if(s_.ctrl.petsc_Vr) {
+                        ComplexMatrix& cp = sdp.c();
+                        vector<complex<double> > tmp(ft.np012loc());
+                        vector<complex<double> > ctmp(2*cp.mloc());
+                        const int np012loc = ft.np012loc();
+                        const int mloc = cp.mloc();
+                        for ( int n = 0; n < sdp.nstloc(); n++ ) {
+                            ft.backward(cp.cvalptr(n*mloc),&tmp[0]);
+                            #pragma omp parallel for
+                            for ( int i = 0; i < np012loc; i++ ) {
+                                tmp[i]=exp(-complex<double>(0,1)*v_r[ispin][i]*dt)*tmp[i];
+                            }
+                            ft.forward(&tmp[0],cp.valptr(n*mloc));
+                        }
+                    }
+#if PETSC_DEBUG
+                    // AK: debug
+                    if (s_.ctxt_.oncoutpe()) {
+                        cout << "dwf after v_r" << endl;
+                        for (int i=0; i<10; i++)
+                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
+                        cout << endl;
+                    }
+#endif
+                }
+            }
+        }
+    }
+
 }
