@@ -133,15 +133,98 @@ void ExponentialWavefunctionStepper::exponential(int num_exp, double dt1, double
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++) {
         for ( int ikp = 0; ikp < wf_.nkp(); ikp++ ) {
             wf_.sd(ispin, ikp)->c() = expwf_.sd(ispin, ikp)->c();
+<<<<<<< HEAD
+            if (s_.ctrl.petsc_tdH)
+                s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
+=======
             s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
         }
     }
     tmap_["expowf_copy"].stop();
 
 }
-
-
 ////////////////////////////////////////////////////////////////////////////////
+void ExponentialWavefunctionStepper::exponential(double dt1,bool expKE) {
+    for ( int ispin = 0; ispin < newwf_.nspin(); ispin++ ) {
+        if (newwf_.spinactive(ispin)) {
+            for ( int ikp=0; ikp<newwf_.nkp(); ikp++) {
+                if (newwf_.kptactive(ikp)) {
+                    assert(newwf_.sd(ispin,ikp) != 0);
+                    newwf_.sd(ispin,ikp)->c()=wf_.sd(ispin,ikp)->c();
+                    for (int i=0; i<newwf_.sd(ispin,ikp)->c().size(); i++) {
+                    }
+                }
+            }
+        }
+    }
+
+    const int N=2;
+    double a[N]= {0.5,0.5};
+    double b[N]= {1,0};
+
+    const bool origKE=s_.ctrl.petsc_KE;
+    for (int j=0; j<N; j++) {
+        if(s_.ctrl.petsc_Vr && tddt_*a[j]!=0) {
+            if(s_.ctxt_.oncoutpe())
+                cout<<"ts="<<s_.ctrl.mditer<<" VrVnl b="<<a[j]<<endl;
+            s_.ctrl.petsc_KE=0;
+            taylorVr(newwf_,tddt_*a[j]);
+            s_.ctrl.petsc_KE=origKE;
+
+            for ( int ispin = 0; ispin < wf_.nspin(); ispin++) {
+                for ( int ikp = 0; ikp < wf_.nkp(); ikp++ ) {
+                    wf_.sd(ispin, ikp)->c() = newwf_.sd(ispin, ikp)->c();
+                    if (s_.ctrl.petsc_tdH)
+                        s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
+                }
+            }
+            if(s_.ctrl.petsc_tdH) {
+                ef_.hamil_cd()->update_density();
+                ef_.update_hamiltonian();
+                ef_.update_vhxc();
+            }
+        }
+        if(s_.ctrl.petsc_KE && tddt_*b[j]!=0) {
+            if(s_.ctxt_.oncoutpe())
+                cout<<"ts="<<s_.ctrl.mditer<<" KE a="<<b[j]<<endl;
+            ef_.expKE(newwf_,tddt_*b[j]);
+
+            for ( int ispin = 0; ispin < wf_.nspin(); ispin++) {
+                for ( int ikp = 0; ikp < wf_.nkp(); ikp++ ) {
+                    wf_.sd(ispin, ikp)->c() = newwf_.sd(ispin, ikp)->c();
+                    if (s_.ctrl.petsc_tdH)
+                        s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
+                }
+            }
+            if(s_.ctrl.petsc_tdH) {
+                ef_.hamil_cd()->update_density();
+                ef_.update_hamiltonian();
+                ef_.update_vhxc();
+            }
+        }
+    }
+
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++) {
+        for ( int ikp = 0; ikp < wf_.nkp(); ikp++ ) {
+            wf_.sd(ispin, ikp)->c() = newwf_.sd(ispin, ikp)->c();
+            if (s_.ctrl.petsc_tdH)
+                s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
+        }
+    }
+}
+////////////////////////////////////////////////////////////////////////////////
+<<<<<<< HEAD
+void ExponentialWavefunctionStepper::taylorVr(Wavefunction& newwf,const double dt) {
+    std::vector<std::vector<double> > fion;
+    std::valarray<double> sigma;
+    ef_.energy(wf_, true, newwf, false, fion, false, sigma);
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++)
+        for ( int ikp = 0; ikp < wf_.nkp(); ikp++ )
+            expwf_.sd(ispin,ikp)->c()=wf_.sd(ispin,ikp)->c();
+
+    complex<double> factor1 = 1.0;
+=======
 void ExponentialWavefunctionStepper::preupdate() {
     // allocate memory for the input args to exponential()
     int num_exp;
@@ -221,10 +304,125 @@ void ExponentialWavefunctionStepper::preupdate() {
         // Propagate psi(t + dt/2) to psi(t + dt) using H(t + dt)
         exponential(num_exp, dt1, dt2);
     }
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
+
+    for(int N = 1; N <= 4; N++) {
+        factor1 *= -complex<double>(0.0, 1.0)*dt/double(N);
+        if(N != 1) {      // for N == 1 this is already done
+            for ( int ispin = 0; ispin < wf_.nspin(); ispin++)
+                for ( int ikp = 0; ikp < wf_.nkp(); ikp++ )
+                    wf_.sd(ispin, ikp)->c() = newwf.sd(ispin, ikp)->c();
+            // apply A
+            {
+                if(s_.ctrl.petsc_Vr) {
+                    ef_.energy(wf_, true, newwf, false, fion, false, sigma);
+                }
+            }
+        }
+        for ( int ispin = 0; ispin < wf_.nspin(); ispin++)
+            for ( int ikp = 0; ikp < wf_.nkp(); ikp++ )
+                expwf_.sd(ispin, ikp)->c().axpy(factor1, newwf.sd(ispin, ikp)->c());
+    }
+    for ( int ispin = 0; ispin < wf_.nspin(); ispin++)
+        for ( int ikp = 0; ikp < wf_.nkp(); ikp++ )
+            newwf.sd(ispin,ikp)->c()=expwf_.sd(ispin,ikp)->c();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+<<<<<<< HEAD
+void ExponentialWavefunctionStepper::preupdate() {
+    // allocate memory for the input args to exponential()
+    int num_exp;
+    double dt1;
+    double dt2;
+
+    if (approximated_) {
+        // For AETRS, save the potential
+        potential_[0] = potential_[1];
+        potential_[1] = potential_[2];
+        potential_[2] = ef_.get_self_consistent_potential();
+        stored_iter_++;
+    }
+
+    // The propagator is U(t + dt, t) = exp(-i dt/2 H(t + dt)) exp(-i dt/2 H(t))
+    // In preupdate(), we propagate the wavefunctions (wf_) to psi(t + dt/2) using
+    // only part of this propagator, exp(-i dt/2 H(t)). Similarly, an approximation
+    // to the wavefunctions, psi(t + dt) are obtained by using the propagator,
+    // exp(-i dt H(t)).
+
+    if (merge_exp_) {
+        // Propagate the wavefunctions by half a time step and by a full time
+        // step in one exponential() call. At the end of the call, wavefunctions at time
+        // t + dt will be stored in wf_ and wavefunctions at time t + dt/2 will be
+        // stored in newwf_.
+        num_exp = 2;
+        dt1 = tddt_;
+        dt2 = 0.5*tddt_;
+        exponential(num_exp, dt1, dt2);
+    }
+    else {
+        // Propagate the wavefunctions by half a time step and by a full time step
+        // in two separate exponential calls.
+        num_exp = 1;
+        dt1 = 0.5*tddt_;
+        dt2 = 0.0;
+        // First, propagate to t + dt/2
+        if(s_.ctrl.usespo)
+            exponential(dt1,true);
+        else
+            exponential(num_exp, dt1, dt2);
+
+        // Then, backup the wavefunctions at t + dt/2 in newwf_
+        tmap_["expowf_copy"].start();
+        for ( int ispin = 0; ispin < wf_.nspin(); ispin++)
+            for ( int ikp = 0; ikp < wf_.nkp(); ikp++ )
+                newwf_.sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
+        tmap_["expowf_copy"].stop();
+        // Finally, propagate wavefunctions in wf_ from t + dt/2 to t + dt via
+        // a second half step
+        if(s_.ctrl.usespo)
+            exponential(dt1,true);
+        else
+            exponential(num_exp, dt1, dt2);
+
+    }
+
+
+    if( approximated_ && stored_iter_ >= 3 ) {
+        // If running AETRS, extrapolate the potential using values of the
+        // potential from previous stored iterations
+        tmap_["expowf_copy"].start();
+        SelfConsistentPotential future_potential;
+        future_potential.extrapolate(potential_);
+        ef_.set_self_consistent_potential(future_potential);
+        tmap_["expowf_copy"].stop();
+
+        // now do the other half of the propagation with H(t + dt)
+        //
+        // At the time the function call to exponential() is made below, psi(t + dt/2)
+        // --- what you want to propagate forward by another half step -- is stored
+        // in newwf_. Move this version of the wavefunction to wf_ before
+        // propagation.
+        tmap_["expowf_copy"].start();
+        for ( int ispin = 0; ispin < wf_.nspin(); ispin++)
+            for ( int ikp = 0; ikp < wf_.nkp(); ikp++ )
+                wf_.sd(ispin, ikp)->c() = newwf_.sd(ispin, ikp)->c();
+        tmap_["expowf_copy"].stop();
+
+        // Redefine time step arguments so that only one exponential is calculated
+        // within exponential()
+        num_exp = 1;
+        dt1 = 0.5*tddt_;
+        dt2 = 0.0;
+        // Propagate psi(t + dt/2) to psi(t + dt) using H(t + dt)
+        exponential(num_exp, dt1, dt2);
+    }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+=======
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 void ExponentialWavefunctionStepper::update(Wavefunction& dwf) {
     // Define time step args for both AETRS and ETRS
     int num_exp = 1;
@@ -241,7 +439,11 @@ void ExponentialWavefunctionStepper::update(Wavefunction& dwf) {
         // Get the approximated vhxc for the end of the step and update
         // H(t) to H(t + dt)
         tmap_["expowf_ef"].start();
+<<<<<<< HEAD
+        if (s_.ctrl.petsc_tdH) {
+=======
         if (s_.ctrl.petsc_tdH){
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
             ef_.hamil_cd()->update_density();
             ef_.update_hamiltonian();
             ef_.update_vhxc();
@@ -257,7 +459,15 @@ void ExponentialWavefunctionStepper::update(Wavefunction& dwf) {
 
         // Propagate the wavefunctions in wf_ from t + dt/2 to t + dt
         // using H(t + dt)
+<<<<<<< HEAD
+        if(s_.ctrl.usespo)
+            exponential(dt1,true);
+        else
+            exponential(num_exp, dt1, dt2);
+    }
+=======
         exponential(num_exp, dt1, dt2);
     }
 
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 }

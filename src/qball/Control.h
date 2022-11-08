@@ -57,6 +57,10 @@ struct Control
   bool petsc_Vr=true;
   bool petsc_Vnl=true;
   bool petsc_tdH=1;
+<<<<<<< HEAD
+    bool usespo=false;
+=======
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 
   bool etrs_merge_exp;
   int etrs_order;

@@ -58,6 +58,8 @@ protected:
     EnergyFunctional & ef_;
     Sample & s_;
     void exponential(int num_exp, double dt1, double dt2, Wavefunction * dwf = 0);
+    void exponential(double dt1,bool expKE);
+    void taylorVr(Wavefunction& newwf,const double dt);
 
 public:
     void preupdate();

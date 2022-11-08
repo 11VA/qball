@@ -127,7 +127,11 @@ int RunCmd::action(int argc, char **argv)
   
   if ( s->ctrl.wf_dyn == "MD" )
     stepper = new CPSampleStepper(*s);
+<<<<<<< HEAD
+  else if (s->ctrl.wf_dyn == "TDEULER" || s->ctrl.wf_dyn == "SOTD" || s->ctrl.wf_dyn == "SORKTD" || s->ctrl.wf_dyn == "FORKTD" || s->ctrl.wf_dyn == "ETRS" || s->ctrl.wf_dyn == "AETRS" || s->ctrl.wf_dyn == "PETSC"||s->ctrl.wf_dyn=="SPO"|| s->ctrl.wf_dyn=="MRRK")
+=======
   else if (s->ctrl.wf_dyn == "TDEULER" || s->ctrl.wf_dyn == "SOTD" || s->ctrl.wf_dyn == "SORKTD" || s->ctrl.wf_dyn == "FORKTD" || s->ctrl.wf_dyn == "ETRS" || s->ctrl.wf_dyn == "AETRS" || s->ctrl.wf_dyn == "PETSC"||s->ctrl.wf_dyn=="SPO")
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
     stepper = new EhrenSampleStepper(*s,nitscf,nite);
   else
     stepper = new BOSampleStepper(*s,nitscf,nite);

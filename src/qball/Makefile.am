@@ -45,6 +45,7 @@ noinst_HEADERS =                            \
 	ExponentialWavefunctionStepper.h    \
 	SPOWavefunctionStepper.h    \
 	PETSCWavefunctionStepper.h          \
+	MRRKWavefunctionStepper.h          \
 	Extrapolator.h                      \
 	ExtrapolatorASP.h                   \
 	ExtrapolatorNTC.h                   \
@@ -184,6 +185,7 @@ libqbLink_a_SOURCES =                        \
 	ExponentialWavefunctionStepper.cc    \
 	SPOWavefunctionStepper.cc    \
 	PETSCWavefunctionStepper.cc          \
+	MRRKWavefunctionStepper.cc          \
 	SelfConsistentPotential.cc           \
 	clooper.c                            \
 	qbLink.cc

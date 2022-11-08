@@ -124,11 +124,20 @@ public:
     void H(const Wavefunction& wf, Wavefunction& dwf, bool compute_forces, vector<vector<double> >& fion, bool compute_stress, valarray<double>& sigma);
 
     void KE(Wavefunction& dwf);
+<<<<<<< HEAD
+    void KE_in_place(Wavefunction& dwf);
+=======
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
     void Vr(Wavefunction& dwf);
     void Vnl(Wavefunction& dwf);
     void clear(Wavefunction& dwf);
     void expKE(Wavefunction& dwf,const double dt);
+<<<<<<< HEAD
+    void expVr(Wavefunction& dwf,Wavefunction& expwf,const double dt);
+    void checknorm(Wavefunction& dwf);
+=======
     void expVr(Wavefunction& dwf,const double dt);
+>>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 
     double etotal(void) const {
         return etotal_;
