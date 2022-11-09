@@ -87,6 +87,8 @@ public:
 
     static PetscErrorCode RHSKE(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
     static PetscErrorCode RHSVrVnl(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
+    static PetscErrorCode IMEXRHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_ );
+    static PetscErrorCode IFunction(TS ts, PetscReal t, Vec wf_vec,Vec dwf_vec, Vec lhs, void *ctx_ );
 
     //static PetscErrorCode unit_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_); 
     //static PetscErrorCode unit_evolve_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
