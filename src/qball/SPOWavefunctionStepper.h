@@ -25,12 +25,12 @@
 // ExponentialWavefunctionStepper.h
 //
 ////////////////////////////////////////////////////////////////////////////////
-// $Id: ExponentialWavefunctionStepper.h,v 1.5 2011-06-02 15:56:19 schleife Exp $
+// $Id: SPOWavefunctionStepper.h,v 1.5 2011-06-02 15:56:19 schleife Exp $
 
 #include <config.h>
 
-#ifndef EXPONENTIALWAVEFUNCTIONSTEPPER_H
-#define EXPONENTIALWAVEFUNCTIONSTEPPER_H
+#ifndef SPOWAVEFUNCTIONSTEPPER_H
+#define SPOWAVEFUNCTIONSTEPPER_H
 
 #include "EnergyFunctional.h"
 #include "SelfConsistentPotential.h"
@@ -40,31 +40,24 @@
 #include <deque>
 using namespace std;
 
-class ExponentialWavefunctionStepper : public WavefunctionStepper {
+class SPOWavefunctionStepper : public WavefunctionStepper {
 private:
 
     double tddt_;
-    int order_;
-    int stored_iter_;
-    bool approximated_;
-    bool merge_exp_;
-    std::vector<SelfConsistentPotential> potential_;
-    Wavefunction expwf_;
-    Wavefunction wfhalf_;
-    Wavefunction newwf_;
+    void copy(const Wavefunction& newwf);
+    void expVr(Wavefunction& newwf,const double dt);
+    void expKE(Wavefunction& newwf,const double dt);
 
 protected:
 
     EnergyFunctional & ef_;
     Sample & s_;
-    void exponential(int num_exp, double dt1, double dt2, Wavefunction * dwf = 0);
 
 public:
-    void preupdate();
     void update(Wavefunction& dwf);
 
-    ExponentialWavefunctionStepper(Wavefunction& wf, double tddt, TimerMap& tmap, EnergyFunctional & ef, Sample & s, bool approximated);
-    ~ExponentialWavefunctionStepper() {};
+    SPOWavefunctionStepper(Wavefunction& wf, double tddt, TimerMap& tmap, EnergyFunctional & ef, Sample & s);
+    ~SPOWavefunctionStepper() {};
 };
 #endif
 

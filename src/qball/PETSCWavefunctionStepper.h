@@ -70,8 +70,6 @@ private:
     Vec petsc_dwf_vec;
 
     Vec hamil_wf_vec;
-//    static PetscErrorCode RHSKE(Ts ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
-//    static PetscErrorCode RHSVrVnl(Ts ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
 
     PETSC_CTX * petsc_ctx;
 
@@ -84,16 +82,11 @@ public:
     void update(Wavefunction& dwf);
     static PetscErrorCode dummy_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
     static PetscErrorCode RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_ );
-    static PetscErrorCode IMEXRHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_ );
-    static PetscErrorCode IFunction(TS ts, PetscReal t, Vec wf_vec,Vec dwf_vec, Vec rhs, void *ctx_ );
     static PetscErrorCode RegisterMyRKC2(void);
     static PetscErrorCode RegisterMyRK5(void);
-<<<<<<< HEAD
-=======
 
     static PetscErrorCode RHSKE(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
     static PetscErrorCode RHSVrVnl(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 
     //static PetscErrorCode unit_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_); 
     //static PetscErrorCode unit_evolve_RHS(TS ts, PetscReal t, Vec wf_vec, Vec rhs, void *ctx_);

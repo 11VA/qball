@@ -66,10 +66,6 @@ public:
                 }
                 return 1;
             }
-            string v2=argv[2];
-            if (v2=="spo"){
-                s->ctrl.usespo=true;
-            }
         }
         // AS: TDEULER enables first-order wave-function propagation according to |psi(t+tddt)> = |psi(t)> - i*tddt*|H psi(t)>
         // AS: SOTD enables second-order wave-function propagation according to |psi(t+tddt)> = |psi(t-tddt)> - 2*i*tddt*|H psi(t)>
@@ -87,22 +83,14 @@ public:
                 v == "PETSC"   ||
                 v == "ETRS"    ||
                 v == "SPO"    ||
-<<<<<<< HEAD
-                v == "AETRS"  ||
-                v == "MRRK") ) {
-=======
+                v == "MRRK"    ||
                 v == "AETRS" ) ) {
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
             if ( ui->oncoutpe() )
                 cout << " wf_dyn must be in [LOCKED,SD,PSD,PSDA,RMMDIIS,JD,MD,TDEULER,SOTD,SORKTD,FORKTD,ETRS,AETRS,PETSC]" << endl;
             return 1;
         }
 
-<<<<<<< HEAD
-        if (v == "TDEULER" || v == "SOTD" || v == "SORKTD" || v == "FORKTD" || v == "ETRS" || v == "AETRS" || v == "PETSC"||v=="SPO" || v=="MRRK") {
-=======
-        if (v == "TDEULER" || v == "SOTD" || v == "SORKTD" || v == "FORKTD" || v == "ETRS" || v == "AETRS" || v == "PETSC"||v=="SPO") {
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
+        if (v == "TDEULER" || v == "SOTD" || v == "SORKTD" || v == "FORKTD" || v == "ETRS" || v == "AETRS" || v == "PETSC"||v=="SPO"||v=="MRRK") {
             s->ctrl.tddft_involved = true;
             if (!( s->wf.force_complex_set() )) {
                 cout << "WfDyn::wave functions must be complex to propagate them in time" << endl

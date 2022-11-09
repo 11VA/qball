@@ -1554,18 +1554,6 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
     if (psi.nspin() == 2)
         enlsum[1] *= 0.5;
     enl_ = enlsum[0]/enlsum[1];
-<<<<<<< HEAD
-#if PETSC_DEBUG
-    // AK: debug
-    if (s_.ctxt_.oncoutpe() && compute_hpsi) {
-        cout << "dwf after non local energy" << endl;
-        for (int i=0; i<10; i++)
-            cout << dwf.sd(0,0)->c()[i] << " ";
-        cout << endl;
-    }
-#endif
-=======
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
     if (compute_forces) {
         for (int is=0; is<nsp_; is++)
             dwf.wfcontext()->dsum('r',3*na_[is],1,&fion[is][0],3*na_[is]);
@@ -1734,16 +1722,6 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
                                     }
                                 }
                             }
-
-#if PETSC_DEBUG
-                            // AK: debug
-                            if (s_.ctxt_.oncoutpe() && compute_hpsi) {
-                                cout << "dwf after laplacian" << endl;
-                                for (int i=0; i<10; i++)
-                                    cout << dwf.sd(ispin,ikp)->c()[i] << " ";
-                                cout << endl;
-                            }
-#endif
                         }
 
 
@@ -1752,15 +1730,6 @@ double EnergyFunctional::energy(const Wavefunction& psi, bool compute_hpsi, Wave
                         if (s_.ctrl.petsc_Vr) {
                             //if (true) {
                             sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
-#if PETSC_DEBUG
-                            // AK: debug
-                            if (s_.ctxt_.oncoutpe()) {
-                                cout << "dwf after v_r" << endl;
-                                for (int i=0; i<10; i++)
-                                    cout << dwf.sd(ispin,ikp)->c()[i] << " ";
-                                cout << endl;
-                            }
-#endif
                         }
                     }
                 }
@@ -2353,11 +2322,8 @@ void EnergyFunctional::H(const Wavefunction& wf, Wavefunction& dwf, bool compute
                                 for ( int n = 0; n < sd.nstloc(); n++ ) {
                                     for ( int ig = 0; ig < ngwloc; ig++ ) {
                                         cp[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
-<<<<<<< HEAD
-=======
                                         //                     cp[ig+mloc*n] += 0; //unit vector, g=0, laplacian is 0.
 
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
                                     }
                                 }
                             }
@@ -2373,17 +2339,10 @@ void EnergyFunctional::H(const Wavefunction& wf, Wavefunction& dwf, bool compute
                         }
 #endif
 
-<<<<<<< HEAD
-                        if(s_.ctrl.petsc_Vr) {
-                            if(s_.ctxt_.oncoutpe())
-                                cout<<"np012loc: "<<ft[ispin][ikp]->np012loc()<<endl;
-                            sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
-=======
 
                         if(s_.ctrl.petsc_Vr) {
                             sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
 
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
                         }
 
 #if PETSC_DEBUG
@@ -2422,14 +2381,6 @@ void EnergyFunctional::KE(Wavefunction& dwf) {
                         for ( int n = 0; n < sd.nstloc(); n++ ) {
                             for ( int ig = 0; ig < ngwloc; ig++ ) {
                                 cp[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
-                                //                     cp[ig+mloc*n] += 0; //unit vector, g=0, laplacian is 0.
-<<<<<<< HEAD
-                                if (s_.ctxt_.oncoutpe() && n==0 && ig<10) {
-                                    std::cout << std::fixed;
-                                    std::cout << std::setprecision(12);
-                                    cout<<"c "<<real(c[ig+mloc*n])<<" "<<imag(c[ig+mloc*n])<<" kpg2 "<<kpg2[ig]<<" cp "<<cp[ig+mloc*n]<<endl;
-                                }
-
                             }
                         }
                     }
@@ -2465,56 +2416,27 @@ void EnergyFunctional::KE_in_place(Wavefunction& dwf) {
                     if(s_.ctrl.petsc_KE) {
                         for ( int n = 0; n < sd.nstloc(); n++ ) {
                             for ( int ig = 0; ig < ngwloc; ig++ ) {
-                                c[ig+mloc*n] += 0.5 * kpg2[ig] * c[ig+mloc*n];
+                                c[ig+mloc*n] *= 0.5 * kpg2[ig];
                                 if (s_.ctxt_.oncoutpe() && n==0 && ig<10) {
                                     std::cout << std::fixed;
                                     std::cout << std::setprecision(12);
                                     cout<<"c "<<real(c[ig+mloc*n])<<" "<<imag(c[ig+mloc*n])<<" kpg2 "<<kpg2[ig]<<endl;
                                 }
-=======
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 
                             }
                         }
                     }
-#if PETSC_DEBUG
-                    // AK: debug
-                    if (s_.ctxt_.oncoutpe()) {
-                        cout << "dwf after laplacian" << endl;
-                        for (int i=0; i<10; i++)
-                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
-                        cout << endl;
-                    }
-#endif
                 }
             }
         }
     }
 
 }
-<<<<<<< HEAD
-
-
-///////////////////////////////////////////////////////////
-=======
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 void EnergyFunctional::Vr(Wavefunction& dwf) {
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
         if (wf_.spinactive(ispin)) {
             for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
                 if (wf_.kptactive(ikp)) {
-<<<<<<< HEAD
-#if PETSC_DEBUG
-                    // AK: debug
-                    if (s_.ctxt_.oncoutpe()) {
-                        cout << "dwf before v_r" << endl;
-                        for (int i=0; i<10; i++)
-                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
-                        cout << endl;
-                    }
-#endif
-=======
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
                     assert(wf_.sd(ispin,ikp) != 0);
                     const SlaterDet& sd = *(wf_.sd(ispin,ikp));
                     SlaterDet& sdp = *(dwf.sd(ispin,ikp));
@@ -2545,7 +2467,6 @@ void EnergyFunctional::Vr(Wavefunction& dwf) {
 }
 ////////////////////////////////////////////////
 void EnergyFunctional::clear(Wavefunction& dwf) {
-<<<<<<< HEAD
     for ( int ispin = 0; ispin < dwf.nspin(); ispin++ ) {
         if (dwf.spinactive(ispin)) {
             for ( int ikp=0; ikp<dwf.nkp(); ikp++) {
@@ -2556,18 +2477,6 @@ void EnergyFunctional::clear(Wavefunction& dwf) {
             }
         }
     }
-=======
-        for ( int ispin = 0; ispin < dwf.nspin(); ispin++ ) {
-            if (dwf.spinactive(ispin)) {
-                for ( int ikp=0; ikp<dwf.nkp(); ikp++) {
-                    if (dwf.kptactive(ikp)) {
-                        assert(dwf.sd(ispin,ikp) != 0);
-                        dwf.sd(ispin,ikp)->c().clear();
-                    }
-                }
-            }
-        }
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
 }
 void EnergyFunctional::Vnl(Wavefunction& dwf) {
     vector<vector<double> > fion_nl;
@@ -2615,7 +2524,6 @@ void EnergyFunctional::expKE(Wavefunction& dwf,const double dt) {
                         for ( int n = 0; n < sd.nstloc(); n++ ) {
                             for ( int ig = 0; ig < ngwloc; ig++ ) {
                                 cp[ig+mloc*n] = exp(complex<double>(0,-0.5*kpg2[ig]*dt))*cp[ig+mloc*n];
-                                //                     cp[ig+mloc*n] += 0; //unit vector, g=0, laplacian is 0.
 
                             }
                         }
@@ -2634,182 +2542,7 @@ void EnergyFunctional::expKE(Wavefunction& dwf,const double dt) {
         }
     }
 }
-<<<<<<< HEAD
-//////////////////////////////////////////////////////////////////
-void EnergyFunctional::expVr(Wavefunction& dwf,Wavefunction& expwf,const double dt) {
-    clear(expwf);
-    for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
-        if (wf_.spinactive(ispin)) {
-            for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
-                if (wf_.kptactive(ikp)) {
-                    assert(wf_.sd(ispin,ikp) != 0);
-                    SlaterDet& sd = *(expwf.sd(ispin,ikp));
-                    Basis& wfbasis = sd.basis();
-                    ComplexMatrix& c = sd.c();
-
-                    SlaterDet& sdp = *(dwf.sd(ispin,ikp));
-                    ComplexMatrix& cp = sdp.c();
-                    const int mloc = cp.mloc();
-                    cout<<"mloc compare: "<<c.mloc()<<" "<<cp.mloc()<<endl;
-                    cout<<"nstloc compare: "<<sd.nstloc()<<" "<<sdp.nstloc()<<endl;
-                    const double* kpg2 = wfbasis.kpg2_ptr();
-                    const int ngwloc = wfbasis.localsize();
-                    if(s_.ctrl.petsc_Vr) {
-                        const int np012loc = ft[ispin][ikp]->np012loc();
-                        const int mloc = sdp.c().mloc();
-                        vector<complex<double>> tmp(np012loc);
-                        vector<complex<double>> rtmp(np012loc);
-                        vector<complex<double> > ctmp(2*c.mloc());
-
-                        double* p = (double*) &tmp[0];
-                        double* dcp = (double*) c.valptr();
-                        complex<double>* zcp = c.valptr();
-
-                        for ( int n = 0; n < sdp.nstloc(); n++ ) {
-                            ft[ispin][ikp]->backward(cp.cvalptr(n*mloc),&tmp[0]);
-                            if(n==0 && s_.ctxt_.oncoutpe()) {
-                                cout<<"real space before expVr*psi ";
-                                for (int ic=0; ic<10; ic++) {
-                                    cout<<tmp[ic]<<" ";
-                                }
-                                cout<<endl;
-                            }
-                            #pragma omp parallel for
-                            for ( int i = 0; i < np012loc; i++ ) {
-                                complex<double> v=v_r[ispin][i];
-                                //complex<double> v(i,0);
-                                if(n==0&&s_.ctxt_.oncoutpe()&&i<10) {
-                                    cout<<"v right now ";
-                                    cout<<v<<" ";
-                                    cout<<"exp(-ivt) right now ";
-                                    cout<<exp(-complex<double>(0,1)*v*dt)<<" ";
-                                    cout<<endl;
-                                }
-                                rtmp[i]=exp(-complex<double>(0,1)*v*dt)*tmp[i];
-                            }
-                            if(n==0&&s_.ctxt_.oncoutpe()) {
-                                cout<<"real space after expVr*psi ";
-                                for (int ic=0; ic<10; ic++) {
-                                    cout<<rtmp[ic]<<" ";
-                                }
-                                cout<<endl;
-                            }
-                            //ft[ispin][ikp]->forward(&rtmp[0],c.valptr(n*mloc));
-                            ft[ispin][ikp]->forward(&rtmp[0],&ctmp[0]);
-                            int len = mloc;
-                            int inc1 = 1;
-                            complex<double> alpha = complex<double>(1.0,0.0);
-                            zaxpy(&len,&alpha,&ctmp[0],&inc1,&zcp[n*mloc],&inc1);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    for ( int ispin = 0; ispin < dwf.nspin(); ispin++ ) {
-        if (dwf.spinactive(ispin)) {
-            for ( int ikp=0; ikp<dwf.nkp(); ikp++) {
-                if (dwf.kptactive(ikp)) {
-                    assert(dwf.sd(ispin,ikp) != 0);
-                    dwf.sd(ispin,ikp)->c()=expwf.sd(ispin, ikp)->c();
-                }
-            }
-        }
-    }
-}
-////////////////////////////////////////////////////////////
-// void EnergyFunctional::expVr(Wavefunction& dwf,const double dt) {
-//     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
-//         if (wf_.spinactive(ispin)) {
-//             for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
-//                 if (wf_.kptactive(ikp)) {
-//                     assert(wf_.sd(ispin,ikp) != 0);
-//                     SlaterDet& sd = *(wf_.sd(ispin,ikp));
-//                     SlaterDet& sdp = *(dwf.sd(ispin,ikp));
-//                     ComplexMatrix& c = sd.c();
-//                     Basis& wfbasis = sd.basis();
-//                     ComplexMatrix& cp = sdp.c();
-//                     const int mloc = cp.mloc();
-//                     cout<<"mloc compare: "<<c.mloc()<<" "<<cp.mloc()<<endl;
-//                     cout<<"nstloc compare: "<<sd.nstloc()<<" "<<sdp.nstloc()<<endl;
-//                     const double* kpg2 = wfbasis.kpg2_ptr();
-//                     const int ngwloc = wfbasis.localsize();
-//                     if(s_.ctrl.petsc_Vr) {
-//                         const int np012loc = ft[ispin][ikp]->np012loc();
-//                         const int mloc = sdp.c().mloc();
-//                         double norm1=0;
-//                         double norm2=0;
-//                         double cnorm=0;
-//                         double cnorm2=0;
-//                         //for ( int n = 0; n < sdp.nstloc(); n++ ) {
-//                         for ( int n = 0; n < 1; n++ ) {
-//                             vector<complex<double>> tmp(np012loc,complex<double>(0,0));
-//                             vector<complex<double>> rtmp(np012loc,complex<double>(0,0));
-//                             vector<complex<double>> ctmp(mloc,complex<double>(0,0));
-//                             vector<complex<double>> ctmp1(mloc,complex<double>(0,0));
-//                             #pragma omp parallel for
-//                             for ( int i = 0; i < np012loc; i++ ) {
-//                                 tmp[i]=complex<double>(1.0*i,1.0*i);
-//                                 norm1+=norm(tmp[i]);
-//                                 //complex<double> v=v_r[ispin][i];
-//                                 complex<double> v(i,0);
-//                                 //complex<double> v(0,0);
-//                                 if(n==0&&s_.ctxt_.oncoutpe()&&i<10) {
-//                                     cout<<"tmp right now "<<tmp[i]<<" ";
-//                                     cout<<"v right now ";
-//                                     cout<<v<<" ";
-//                                     cout<<"exp(-ivt) right now ";
-//                                     cout<<exp(-complex<double>(0,1)*v*dt)<<" ";
-//                                     cout<<endl;
-//                                 }
-//                                 rtmp[i]=exp(-complex<double>(0,1)*v*dt)*tmp[i];
-//                                 norm2+=norm(rtmp[i]);
-//                             }
-//                             if(n==0&&s_.ctxt_.oncoutpe()) {
-//                                 cout<<"real space after expVr*psi ";
-//                                 for(int i=0;i<10;i++)
-//                                     cout<<rtmp[i]<<" ";
-//                                 cout<<endl;
-//                             }
-//                             ft[ispin][ikp]->forward(&tmp[0],&ctmp[0]);
-//                             ft[ispin][ikp]->forward(&rtmp[0],&ctmp1[0]);
-//                             for (int i=0;i<mloc;i++){
-//                                 if(i==0)
-//                                     cout<<"ctmp without v: ";
-//                                 if(i<10)
-//                                     cout<<ctmp[i]<<" ";
-//                                 if(i==10)
-//                                     cout<<endl;
-//                                 //cnorm+=norm(cp[n*mloc+i]);
-//                                 cnorm+=norm(ctmp[i]);
-//                             }
-//                             for (int i=0;i<mloc;i++){
-//                                 if(i==0)
-//                                     cout<<"ctmp with v: ";
-//                                 if(i<10)
-//                                     cout<<ctmp1[i]<<" ";
-//                                 if(i==10)
-//                                     cout<<endl;
-//                                 //cnorm+=norm(cp[n*mloc+i]);
-//                                 cnorm2+=norm(ctmp1[i]);
-//                             }
-//                         }
-//                         cout<<"norm without v: "<<norm1<<endl;
-//                         cout<<"norm with v: "<<norm2<<endl;
-//                         cout<<"cnorm with v: "<<cnorm2<<endl;
-//                         cout<<"cnorm without v: "<<cnorm<<endl;
-//                     }
-//                 }
-//             }
-//         }
-//     }
-//
-// }
-///////////////////////////////////////////////////////////////////
-void EnergyFunctional::checknorm(Wavefunction& dwf) {
-=======
 void EnergyFunctional::expVr(Wavefunction& dwf,const double dt) {
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
         if (wf_.spinactive(ispin)) {
             for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
@@ -2819,41 +2552,11 @@ void EnergyFunctional::expVr(Wavefunction& dwf,const double dt) {
                     SlaterDet& sdp = *(dwf.sd(ispin,ikp));
                     const ComplexMatrix& c = sd.c();
                     const Basis& wfbasis = sd.basis();
-<<<<<<< HEAD
-=======
 
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
                     ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
                     const int mloc = cp.mloc();
                     const double* kpg2 = wfbasis.kpg2_ptr();
                     const int ngwloc = wfbasis.localsize();
-<<<<<<< HEAD
-                    if(s_.ctrl.petsc_Vr) {
-                        ComplexMatrix& cp = sdp.c();
-                        vector<complex<double> > tmp(ft[ispin][ikp]->np012loc());
-                        const int np012loc = ft[ispin][ikp]->np012loc();
-                        const int mloc = cp.mloc();
-                        double norm1=0;
-
-                        if(s_.ctxt_.oncoutpe())
-                            cout<<"np012loc: "<<np012loc<<endl;
-                        for ( int n = 0; n < sdp.nstloc(); n++ ) {
-                            ft[ispin][ikp]->backward(cp.cvalptr(n*mloc),&tmp[0]);
-                            #pragma omp parallel for
-                            for ( int i = 0; i < np012loc; i++ ) {
-                                norm1+=norm(tmp[i]);
-                            }
-                            if(n==0&&s_.ctxt_.oncoutpe()) {
-                                cout<<"real space after expVr*psi ";
-                                for (int ic=0; ic<10; ic++) {
-                                    cout<<tmp[ic]<<" ";
-                                }
-                                cout<<endl;
-                            }
-                        }
-                        cout<<"check norm: "<<norm1<<endl;
-                    }
-=======
                     FourierTransform ft(wfbasis,wfbasis.np(0),wfbasis.np(1),wfbasis.np(2));
                     if(s_.ctrl.petsc_Vr) {
                         ComplexMatrix& cp = sdp.c();
@@ -2879,7 +2582,6 @@ void EnergyFunctional::expVr(Wavefunction& dwf,const double dt) {
                         cout << endl;
                     }
 #endif
->>>>>>> d1404658dd09b4a711e980f4f56c96100e105838
                 }
             }
         }
