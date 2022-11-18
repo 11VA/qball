@@ -2363,6 +2363,7 @@ void EnergyFunctional::H(const Wavefunction& wf, Wavefunction& dwf, bool compute
 }
 
 void EnergyFunctional::KE(Wavefunction& dwf) {
+    tmap["KE"].start();
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
         if (wf_.spinactive(ispin)) {
             for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
@@ -2397,10 +2398,11 @@ void EnergyFunctional::KE(Wavefunction& dwf) {
             }
         }
     }
-
+    tmap["KE"].stop();
 }
 ///////////////////////////////////////////////////////////
 void EnergyFunctional::KE_in_place(Wavefunction& dwf) {
+    tmap["KE"].start();
     for ( int ispin = 0; ispin < dwf.nspin(); ispin++ ) {
         if (dwf.spinactive(ispin)) {
             for ( int ikp=0; ikp<dwf.nkp(); ikp++) {
@@ -2430,9 +2432,10 @@ void EnergyFunctional::KE_in_place(Wavefunction& dwf) {
             }
         }
     }
-
+    tmap["KE"].stop();
 }
 void EnergyFunctional::Vr(Wavefunction& dwf) {
+    tmap["Vr"].start();
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
         if (wf_.spinactive(ispin)) {
             for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
@@ -2463,6 +2466,7 @@ void EnergyFunctional::Vr(Wavefunction& dwf) {
             }
         }
     }
+    tmap["Vr"].stop();
 
 }
 ////////////////////////////////////////////////
@@ -2479,6 +2483,7 @@ void EnergyFunctional::clear(Wavefunction& dwf) {
     }
 }
 void EnergyFunctional::Vnl(Wavefunction& dwf) {
+    tmap["Vnl"].start();
     vector<vector<double> > fion_nl;
     valarray<double> tsigma_enl;
     tsigma_enl.resize(6);
@@ -2503,16 +2508,17 @@ void EnergyFunctional::Vnl(Wavefunction& dwf) {
         cout << endl;
     }
 #endif
+    tmap["Vnl"].stop();
 }
 
 void EnergyFunctional::expKE(Wavefunction& dwf,const double dt) {
+    tmap["KE"].start();
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
         if (wf_.spinactive(ispin)) {
             for ( int ikp=0; ikp<wf_.nkp(); ikp++) {
                 if (wf_.kptactive(ikp)) {
                     assert(wf_.sd(ispin,ikp) != 0);
                     const SlaterDet& sd = *(wf_.sd(ispin,ikp));
-                    SlaterDet& sdp = *(dwf.sd(ispin,ikp));
                     const ComplexMatrix& c = sd.c();
                     const Basis& wfbasis = sd.basis();
                     ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
@@ -2523,8 +2529,7 @@ void EnergyFunctional::expKE(Wavefunction& dwf,const double dt) {
                     if(s_.ctrl.petsc_KE) {
                         for ( int n = 0; n < sd.nstloc(); n++ ) {
                             for ( int ig = 0; ig < ngwloc; ig++ ) {
-                                cp[ig+mloc*n] = exp(complex<double>(0,-0.5*kpg2[ig]*dt))*cp[ig+mloc*n];
-
+                                cp[ig+mloc*n] = exp(complex<double>(0,-0.5*kpg2[ig]*dt))*c[ig+mloc*n];
                             }
                         }
                     }
@@ -2541,6 +2546,7 @@ void EnergyFunctional::expKE(Wavefunction& dwf,const double dt) {
             }
         }
     }
+    tmap["KE"].stop();
 }
 void EnergyFunctional::expVr(Wavefunction& dwf,const double dt) {
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {

@@ -34,12 +34,11 @@
 #include "SlaterDet.h"
 #include "Sample.h"
 #include <iostream>
-#include <deque>
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 MRRKWavefunctionStepper::MRRKWavefunctionStepper(Wavefunction& wf, double tddt, TimerMap& tmap, EnergyFunctional & ef, Sample & s)
-    : tddt_(tddt), WavefunctionStepper(wf,tmap), ef_(ef), s_(s),k1(s.wf),k2(s.wf),k3(s.wf),Vk2(s.wf),Vk3(s.wf){
+    : tddt_(tddt), WavefunctionStepper(wf,tmap), ef_(ef), s_(s),k1(s.wf),k2(s.wf),k3(s.wf),Vk2(s.wf),Vk3(s.wf) {
 }
 
 
@@ -48,23 +47,28 @@ void MRRKWavefunctionStepper::update(Wavefunction& dwf) {
     //k1=phi0
     copy(k1,wf_);
     k2.clear();
-    ef_.KE(k2); //k2=T|k1>
 
-    //k2=k1-idt/2*T|k1>
-    for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
-        for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
-            k2.sd(ispin, ikp)->c() *= -0.5*complex<double>(0,1)*tddt_; //k2=-idt/2*T|k1>
-            k2.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k2=k1-i*dt/2*T|k1>
-        }
-    }
+    //ef_.KE(k2); //k2=T|k1>
+    ////k2=k1-idt/2*T|k1>
+    //for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
+    //    for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
+    //        k2.sd(ispin, ikp)->c() *= -0.5*complex<double>(0,1)*tddt_; //k2=-idt/2*T|k1>
+    //        k2.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k2=k1-i*dt/2*T|k1>
+    //    }
+    //}
+
+    //evaluate the kinetic energy analytically
+    ef_.expKE(k2,tddt_/2);
+
+
 //k3=k1-i*dt/2*T|k2>-i*dt*V(k2)
     copy(k2); //set wf to k2
     updateV();
     Vk2.clear();
     ef_.Vnl(Vk2);
-    ef_.Vr(Vk2); //get V(k2) 
+    ef_.Vr(Vk2); //get V(k2)
 
-    k3.clear(); 
+    k3.clear();
     ef_.KE(k3); //k3=T|k2>
 
     for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
@@ -74,17 +78,17 @@ void MRRKWavefunctionStepper::update(Wavefunction& dwf) {
             k3.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k3=k1-i*dt/2*T|k2>-i*dt*V|k2>
         }
     }
-    copy(k3);//set wf to k3 
+    copy(k3);//set wf to k3
     updateV();
 
     Vk3.clear();
     ef_.Vnl(Vk3);
     ef_.Vr(Vk3); //get V(k3)
 
-    copy(wf_,k2); //phi1=k2 
+    copy(wf_,k2); //phi1=k2
     for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
         for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
-            wf_.sd(ispin, ikp)->c().axpy(1,k3.sd(ispin,ikp)->c()); //phi1=k2+k3 
+            wf_.sd(ispin, ikp)->c().axpy(1,k3.sd(ispin,ikp)->c()); //phi1=k2+k3
         }
     }
 
@@ -102,22 +106,28 @@ void MRRKWavefunctionStepper::update(Wavefunction& dwf) {
 }
 
 void MRRKWavefunctionStepper::copy(Wavefunction& newwf, const Wavefunction& oldwf) {
+    tmap_["copy"].start();
     for ( int ispin = 0; ispin < oldwf.nspin(); ispin++) {
         for ( int ikp = 0; ikp < oldwf.nkp(); ikp++ ) {
             newwf.sd(ispin, ikp)->c() = oldwf.sd(ispin, ikp)->c();
         }
     }
+    tmap_["copy"].stop();
 }
 void MRRKWavefunctionStepper::copy(const Wavefunction& oldwf) {
+    tmap_["copy"].start();
     for ( int ispin = 0; ispin < wf_.nspin(); ispin++) {
         for ( int ikp = 0; ikp < wf_.nkp(); ikp++ ) {
             wf_.sd(ispin, ikp)->c() = oldwf.sd(ispin, ikp)->c();
             s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c();
         }
     }
+    tmap_["copy"].stop();
 }
-void MRRKWavefunctionStepper::updateV(){
-            ef_.hamil_cd()->update_density();
-            ef_.update_hamiltonian();
-            ef_.update_vhxc();
+void MRRKWavefunctionStepper::updateV() {
+    tmap_["updateV"].start();
+    ef_.hamil_cd()->update_density();
+    ef_.update_hamiltonian();
+    ef_.update_vhxc();
+    tmap_["updateV"].stop();
 }
