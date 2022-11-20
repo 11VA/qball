@@ -60,7 +60,7 @@ public:
         if ( argc > 2 ) {
             // AK: for ETRS/AETRS, accept order and merge_exp as later args
             // AK: for PETSC, accept integrator type as later args
-            if ( v != "PETSC" && v != "ETRS" && v != "AETRS") {
+            if ( v != "PETSC" && v != "ETRS" && v != "AETRS" && v!="MRRK") {
                 if ( ui->oncoutpe() ) {
                     cout << " <ERROR> wf_dyn " << v << " does not take any more values </ERROR>" << endl;
                 }
@@ -100,6 +100,10 @@ public:
             if ( s->wfv != 0 )
                 delete s->wfv;
             s->wfv = 0;
+            if(v=="MRRK" && argc>2){
+                string v2=argv[2];
+                s->ctrl.mrrk_sub=v2;
+            }
         }
 
         s->ctrl.wf_dyn = v;

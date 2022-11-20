@@ -38,12 +38,42 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 MRRKWavefunctionStepper::MRRKWavefunctionStepper(Wavefunction& wf, double tddt, TimerMap& tmap, EnergyFunctional & ef, Sample & s)
-    : tddt_(tddt), WavefunctionStepper(wf,tmap), ef_(ef), s_(s),k1(s.wf),k2(s.wf),k3(s.wf),Vk2(s.wf),Vk3(s.wf) {
+    : tddt_(tddt), WavefunctionStepper(wf,tmap), ef_(ef), s_(s) {
+//      ,k1(s.wf),k2(s.wf),k3(s.wf),Vk2(s.wf),Vk3(s.wf) {
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
 void MRRKWavefunctionStepper::update(Wavefunction& dwf) {
+    tmap_["mrrk"].start();
+    if(s_.ctrl.mrrk_sub=="fast"){
+        update_fast(dwf);
+        //if(s_.ctxt_.oncoutpe()){
+        //    cout<<"fast"<<s_.ctrl.mrrk_sub<<endl;
+        //}
+
+    }
+    else if(s_.ctrl.mrrk_sub=="slow"){
+        update_slow(dwf);
+        //if(s_.ctxt_.oncoutpe()){
+        //    cout<<"slow"<<s_.ctrl.mrrk_sub<<endl;
+        //}
+    }
+    else{
+        update_mrrk(dwf);
+        //if(s_.ctxt_.oncoutpe()){
+        //    cout<<"mrrk"<<endl;
+        //}
+    }
+    tmap_["mrrk"].stop();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void MRRKWavefunctionStepper::update_mrrk(Wavefunction& dwf) {
+    Wavefunction k1(dwf);
+    Wavefunction k2(dwf);
+    Wavefunction Vk2(dwf);
+    Wavefunction k3(dwf);
+    Wavefunction Vk3(dwf);
     //k1=phi0
     copy(k1,wf_);
     k2.clear();
@@ -103,6 +133,101 @@ void MRRKWavefunctionStepper::update(Wavefunction& dwf) {
         }
     }
 
+}
+
+void MRRKWavefunctionStepper::update_fast(Wavefunction& dwf) {
+    Wavefunction k1(dwf);
+    Wavefunction k2(dwf);
+    Wavefunction Hk2(dwf);
+    Wavefunction k3(dwf);
+    Wavefunction Hk3(dwf);
+    //k1=phi0
+    copy(k1,wf_);
+    k2.clear();
+
+    ef_.KE(k2); //k2=T|k1>
+    ef_.Vnl(k2); //K2=(T+Vnl)|k1>
+    ef_.Vr(k2); //K2=(T+Vr)|k1>
+    //k2=k1-idt/2*H|k1>
+    for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
+        for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
+            k2.sd(ispin, ikp)->c() *= -0.5*complex<double>(0,1)*tddt_; //k2=-idt/2*H|k1>
+            k2.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k2=k1-i*dt/2*H|k1>
+        }
+    }
+
+//k3=k1-i*dt/2*H|k2>
+    copy(k2); //set wf to k2
+    updateV();
+    Hk2.clear();
+    ef_.Vnl(Hk2);
+    ef_.Vr(Hk2); //get V(k2)
+    ef_.KE(Hk2); //Hk2=(T+V)|k2>
+
+    copy(k3,Hk2); //k3=(T+V)|k2>
+    for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
+        for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
+            k3.sd(ispin, ikp)->c() *= -0.5*complex<double>(0,1)*tddt_; //k3=-idt/2*H|k2>
+            k3.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k3=k1-idt/2*H|k2>
+        }
+    }
+    copy(k3);//set wf to k3
+    updateV();
+    Hk3.clear();
+    ef_.Vnl(Hk3);
+    ef_.Vr(Hk3); //get V(k3)
+    ef_.KE(Hk3); //Hk3=(T+V)|k3>
+
+    copy(wf_,Hk2); //phi1=H|k2>
+    for ( int ispin = 0; ispin < Hk2.nspin(); ispin++) {
+        for ( int ikp = 0; ikp < Hk2.nkp(); ikp++ ) {
+            wf_.sd(ispin, ikp)->c().axpy(1,Hk3.sd(ispin,ikp)->c()); //phi1=H|k2>+H|k3>
+            wf_.sd(ispin,ikp)->c()*=-complex<double>(0,1)*0.5*tddt_;  //phi1=-i*dt/2[H|k2+k3>)]
+            wf_.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //phi1=k1-i*dt/2[H|k2+k3>)]
+            s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c(); //copy to hamil_wf
+        }
+    }
+}
+void MRRKWavefunctionStepper::update_slow(Wavefunction& dwf) {
+    Wavefunction k1(dwf);
+    Wavefunction k2(dwf);
+    Wavefunction Hk2(dwf);
+    Wavefunction k3(dwf);
+    Wavefunction Hk3(dwf);
+
+    copy(k2,wf_);
+
+    Hk2.clear();
+    ef_.KE(Hk2); //H|k2>
+    ef_.Vnl(Hk2);
+    ef_.Vr(Hk2); //get V(k3)
+
+    copy(k3,Hk2); //k3=(T+V)|k2>
+
+    for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
+        for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
+            k3.sd(ispin, ikp)->c() *= -complex<double>(0,1)*tddt_; //k3=-i*dt*H|k2>
+            k3.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k3=k1-i*dt*H|k2>
+        }
+    }
+
+    copy(k3); //phi1=k2
+    updateV();
+    Hk3.clear();
+    ef_.KE(Hk3); //H|k3>
+    ef_.Vnl(Hk3);
+    ef_.Vr(Hk3); //get V(k3)
+
+    copy(Hk2); //phi1=H|k2>
+
+    for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
+        for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
+            wf_.sd(ispin, ikp)->c().axpy(1,Hk3.sd(ispin,ikp)->c()); //phi1=H(|k2>+|k3>)
+            wf_.sd(ispin,ikp)->c()*=-complex<double>(0,1)*0.5*tddt_;  //phi1=-i*dt/2[H(k2)+H(k3)]
+            wf_.sd(ispin, ikp)->c().axpy(1,k2.sd(ispin,ikp)->c()); //phi1=k2-i*dt/2[H(k2)+H(k3)]
+            s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c(); //copy to hamil_wf
+        }
+    }
 }
 
 void MRRKWavefunctionStepper::copy(Wavefunction& newwf, const Wavefunction& oldwf) {

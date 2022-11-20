@@ -33,25 +33,21 @@
 #define MRRKWAVEFUNCTIONSTEPPER_H
 
 #include "EnergyFunctional.h"
-#include "SelfConsistentPotential.h"
 #include "Wavefunction.h"
 #include "WavefunctionStepper.h"
 
-#include <deque>
 using namespace std;
 
 class MRRKWavefunctionStepper : public WavefunctionStepper {
 private:
 
     double tddt_;
-    Wavefunction k1;
-    Wavefunction k2;
-    Wavefunction Vk2;
-    Wavefunction k3;
-    Wavefunction Vk3;
     void updateV();
     void copy(const Wavefunction& oldwf);
     void copy(Wavefunction& newwf, const Wavefunction& oldwf);
+    void update_mrrk(Wavefunction& dwf);
+    void update_fast(Wavefunction& dwf);
+    void update_slow(Wavefunction& dwf);
 
 protected:
 

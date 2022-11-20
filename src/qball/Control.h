@@ -57,6 +57,7 @@ struct Control
   bool petsc_Vr=true;
   bool petsc_Vnl=true;
   bool petsc_tdH=1;
+  string mrrk_sub="";
 
   bool etrs_merge_exp;
   int etrs_order;
