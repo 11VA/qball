@@ -189,7 +189,7 @@ void MRRKWavefunctionStepper::update_fast(Wavefunction& dwf) {
     }
 }
 void MRRKWavefunctionStepper::update_slow(Wavefunction& dwf) {
-    Wavefunction k1(dwf);
+    //Wavefunction k1(dwf);
     Wavefunction k2(dwf);
     Wavefunction Hk2(dwf);
     Wavefunction k3(dwf);
@@ -207,7 +207,7 @@ void MRRKWavefunctionStepper::update_slow(Wavefunction& dwf) {
     for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
         for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
             k3.sd(ispin, ikp)->c() *= -complex<double>(0,1)*tddt_; //k3=-i*dt*H|k2>
-            k3.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //k3=k1-i*dt*H|k2>
+            k3.sd(ispin, ikp)->c().axpy(1,k2.sd(ispin,ikp)->c()); //k3=k2-i*dt*H|k2>
         }
     }
 

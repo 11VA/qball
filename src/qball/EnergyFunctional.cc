@@ -2443,31 +2443,14 @@ void EnergyFunctional::Vr(Wavefunction& dwf) {
                     assert(wf_.sd(ispin,ikp) != 0);
                     const SlaterDet& sd = *(wf_.sd(ispin,ikp));
                     SlaterDet& sdp = *(dwf.sd(ispin,ikp));
-                    const ComplexMatrix& c = sd.c();
-                    const Basis& wfbasis = sd.basis();
-
-                    ComplexMatrix& cp = dwf.sd(ispin,ikp)->c();
-                    const int mloc = cp.mloc();
-                    const double* kpg2 = wfbasis.kpg2_ptr();
-                    const int ngwloc = wfbasis.localsize();
                     if(s_.ctrl.petsc_Vr) {
                         sd.rs_mul_add(*ft[ispin][ikp], &v_r[ispin][0], sdp);
                     }
-#if PETSC_DEBUG
-                    // AK: debug
-                    if (s_.ctxt_.oncoutpe()) {
-                        cout << "dwf after v_r" << endl;
-                        for (int i=0; i<10; i++)
-                            cout << dwf.sd(ispin,ikp)->c()[i] << " ";
-                        cout << endl;
-                    }
-#endif
                 }
             }
         }
     }
     tmap["Vr"].stop();
-
 }
 ////////////////////////////////////////////////
 void EnergyFunctional::clear(Wavefunction& dwf) {
@@ -2495,7 +2478,6 @@ void EnergyFunctional::Vnl(Wavefunction& dwf) {
                 nlp[ispin][kloc]->energy(*wf_.sdloc(ispin, kloc), s_.ctrl.petsc_Vnl,*dwf.sdloc(ispin,kloc),
                                          false, fion_nl, false,
                                          tsigma_enl,veff_g[ispin]);
-
             }
         }
     }
