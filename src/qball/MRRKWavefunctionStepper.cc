@@ -144,10 +144,9 @@ void MRRKWavefunctionStepper::update_fast(Wavefunction& dwf) {
     //k1=phi0
     copy(k1,wf_);
     k2.clear();
-
-    ef_.KE(k2); //k2=T|k1>
-    ef_.Vnl(k2); //K2=(T+Vnl)|k1>
-    ef_.Vr(k2); //K2=(T+Vr)|k1>
+    ef_.Vnl(k2); //K2=Vnl|k1>
+    ef_.Vr(k2); //K2=(Vr+Vnl)|k1>
+    ef_.KE(k2); //k2=(T+Vr+Vnl)|k1>
     //k2=k1-idt/2*H|k1>
     for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
         for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
@@ -182,8 +181,8 @@ void MRRKWavefunctionStepper::update_fast(Wavefunction& dwf) {
     for ( int ispin = 0; ispin < Hk2.nspin(); ispin++) {
         for ( int ikp = 0; ikp < Hk2.nkp(); ikp++ ) {
             wf_.sd(ispin, ikp)->c().axpy(1,Hk3.sd(ispin,ikp)->c()); //phi1=H|k2>+H|k3>
-            wf_.sd(ispin,ikp)->c()*=-complex<double>(0,1)*0.5*tddt_;  //phi1=-i*dt/2[H|k2+k3>)]
-            wf_.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //phi1=k1-i*dt/2[H|k2+k3>)]
+            wf_.sd(ispin,ikp)->c()*=-complex<double>(0,1)*0.5*tddt_;  //phi1=-i*dt/2*(H|k2>+H|k3>)
+            wf_.sd(ispin, ikp)->c().axpy(1,k1.sd(ispin,ikp)->c()); //phi1=k1-i*dt/2*(H|k2>+H|k3>)
             s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c(); //copy to hamil_wf
         }
     }
@@ -195,7 +194,7 @@ void MRRKWavefunctionStepper::update_slow(Wavefunction& dwf) {
     Wavefunction k3(dwf);
     Wavefunction Hk3(dwf);
 
-    copy(k2,wf_);
+    copy(k2,wf_); //k2=phi0
 
     Hk2.clear();
     ef_.KE(Hk2); //H|k2>
@@ -211,18 +210,18 @@ void MRRKWavefunctionStepper::update_slow(Wavefunction& dwf) {
         }
     }
 
-    copy(k3); //phi1=k2
+    copy(k3); //phi1=k3
     updateV();
     Hk3.clear();
-    ef_.KE(Hk3); //H|k3>
     ef_.Vnl(Hk3);
     ef_.Vr(Hk3); //get V(k3)
+    ef_.KE(Hk3); //H|k3>
 
     copy(Hk2); //phi1=H|k2>
 
     for ( int ispin = 0; ispin < k2.nspin(); ispin++) {
         for ( int ikp = 0; ikp < k2.nkp(); ikp++ ) {
-            wf_.sd(ispin, ikp)->c().axpy(1,Hk3.sd(ispin,ikp)->c()); //phi1=H(|k2>+|k3>)
+            wf_.sd(ispin, ikp)->c().axpy(1,Hk3.sd(ispin,ikp)->c()); //phi1=(H|k2>+H|k3>)
             wf_.sd(ispin,ikp)->c()*=-complex<double>(0,1)*0.5*tddt_;  //phi1=-i*dt/2[H(k2)+H(k3)]
             wf_.sd(ispin, ikp)->c().axpy(1,k2.sd(ispin,ikp)->c()); //phi1=k2-i*dt/2[H(k2)+H(k3)]
             s_.hamil_wf->sd(ispin, ikp)->c() = wf_.sd(ispin, ikp)->c(); //copy to hamil_wf
