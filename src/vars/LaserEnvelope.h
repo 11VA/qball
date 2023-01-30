@@ -51,7 +51,7 @@ class LaserEnvelope : public Var
       s->ctrl.envelope_type = argv[1];
       if (argc == 3) s->ctrl.envelope_center = atoi(argv[2]);
 
-      if ( s->ctrl.envelope_type != "constant" ){ 
+      if ( s->ctrl.envelope_type != "constant" || s->ctrl.envelope_type != "cos" ){ 
         ui->error(argv[1]);
         ui->error("laser_envelope must be [type] [center of envelope] [width of envelope]. type can be: constant or gaussian. ");
         return 1;
