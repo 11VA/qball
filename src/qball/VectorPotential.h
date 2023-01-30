@@ -168,6 +168,7 @@ public:
            }
        }
     }
+    if(norm(laser_amp_) > 0.0 && envelope_type_ == "cos") external_ = (cos(laser_freq_*time)-1)*laser_amp_/laser_freq_;
     // Static external field
     if(norm(laser_amp_) > 0.0 && envelope_type_ == "constant" && laser_freq_ == 0.0) external_ = -laser_amp_ * time;
     // Numerical integration for guassian d(A/c)/dt = - E = - Amp * Normalization_factor * cos(wt) * Gaussing(center,width)
