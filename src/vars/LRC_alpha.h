@@ -22,65 +22,67 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// EhrenSampleStepper.h
+// TDDFT_LRC.h
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <config.h>
 
-#ifndef EHRENSAMPLESTEPPER_H
-#define EHRENSAMPLESTEPPER_H
+#ifndef LRC_ALPHA_H
+#define LRC_ALPHA_H
 
-#include "SampleStepper.h"
-#include "EnergyFunctional.h"
-#include "Sample.h"
-#include "Wavefunction.h"
-#include <ui/PlotCmd.h>
-#include <deque>
-#include "CurrentDensity.h"
 
-class WavefunctionStepper;
-class IonicStepper;
-using namespace std;
+#include<iostream>
+#include<iomanip>
+#include<sstream>
+#include<stdlib.h>
 
-class EhrenSampleStepper : public SampleStepper
+#include <qball/Sample.h>
+
+class LRC_alpha : public Var
 {
-  private:
-  
-  Wavefunction dwf;
-  Wavefunction* wfv;
-  deque<Wavefunction*> wfdeque;
-  VectorPotential* tempvp_;
-  
-  int nitscf_;
-  int nite_;
-  ChargeDensity cd_;
-  CurrentDensity currd_;
-  EnergyFunctional ef_;
-  
-  WavefunctionStepper* wf_stepper;
-  IonicStepper* ionic_stepper;
-
-  bool tddft_involved_;
-  
-  // Do not allow construction of EhrenSampleStepper unrelated to a Sample
-  EhrenSampleStepper(void);
+  Sample *s;
 
   public:
 
-  mutable TimerMap tmap;
-  
-  void step(int niter);
-  
-  void get_forces(vector<vector<double> > &f) const;
-  double get_energy(string ename);
-  valarray<double> get_stress(string sname);
+  char const*name ( void ) const { return "lrc_alpha"; };
 
-  EhrenSampleStepper(Sample& s, int nitscf, int nite);
-  ~EhrenSampleStepper();
+  int set ( int argc, char **argv )
+  {
+    if ( argc != 2 )
+    {
+      if ( ui->oncoutpe() )
+      cout << " <ERROR> lrc_alpha takes only one value </ERROR>" << endl;
+      return 1;
+    }
+    
+    double v = atof(argv[1]);
+    if ( v < 0.0 )
+    {
+      if ( ui->oncoutpe() )
+        cout << " <ERROR> lrc_alpha  must be non-negative </ERROR>" << endl;
+      return 1;
+    }
+
+    s->ctrl.lrc_alpha = v;
+    return 0;
+  }
+
+  string print (void) const
+  {
+     ostringstream st;
+     st.setf(ios::left,ios::adjustfield);
+     st << setw(10) << name() << " = ";
+     st.setf(ios::right,ios::adjustfield);
+     st << setw(10) << s->ctrl.lrc_alpha;
+     return st.str();
+  }
+
+  LRC_alpha(Sample *sample) : s(sample) { s->ctrl.lrc_alpha = 0.0; }
 };
 #endif
 
 // Local Variables:
 // mode: c++
 // End:
+

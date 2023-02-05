@@ -44,6 +44,7 @@
 
 #include "Timer.h"
 #include <math/blas.h>
+#include <math/d3vector.h>
 
 #include <iostream>
 #include <iomanip>
@@ -210,7 +211,14 @@ EnergyFunctional::EnergyFunctional(const Sample& s, const Wavefunction& wf, Char
      update_hamiltonian();
 
      // AS: the charge density based on hamil_wf has to be used
-     xcp = new XCPotential((*hamil_cd_),s_.ctrl.xc,cd_);
+     xcp = new XCPotential((*hamil_cd_),s_.ctrl.xc,cd_,s.ctrl.lrc_alda);
+
+     (xcp->vxc0).resize(wf_.nspin());  // JY: initialize storing xc0
+     for ( int ispin = 0; ispin < wf_.nspin(); ispin++ ) {
+        (xcp->vxc0[ispin]).resize(vft->np012loc());
+        for (int i=0; i<vft->np012loc(); i++)
+          xcp->vxc0[ispin][i] = 0.0;
+     }
   }
   else
   {
@@ -219,7 +227,7 @@ EnergyFunctional::EnergyFunctional(const Sample& s, const Wavefunction& wf, Char
 
   vp = NULL;
   if(s.ctrl.vector_potential_dynamics != VectorPotential::Dynamics::NONE || norm(s.ctrl.initial_vector_potential) > 1e-15 || norm(s.ctrl.laser_amp) > 1e-15) {
-    vp = new VectorPotential(s.ctrl.vector_potential_dynamics, s.ctrl.initial_vector_potential, s.ctrl.laser_freq, s.ctrl.laser_amp, s.ctrl.envelope_type,s.ctrl.envelope_center,s.ctrl.envelope_width);
+    vp = new VectorPotential(s.ctrl.vector_potential_dynamics, s.ctrl.initial_vp_ext, s.ctrl.initial_vp_ind,s.ctrl.initial_vp_v,s.ctrl.initial_vp_acc,s.ctrl.laser_freq, s.ctrl.laser_amp, s.ctrl.envelope_type,s.ctrl.envelope_center,s.ctrl.envelope_width, s.ctrl.lrc_alpha);
   }
  
   nlp.resize(wf_.nspin());

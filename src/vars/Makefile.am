@@ -71,12 +71,18 @@ noinst_HEADERS =                            \
 	ThWidth.h                           \
 	VectorPotentialDynamics.h           \
 	VectorPotentialVar.h                \
+	VectorPotential_ext.h                \
+	VectorPotential_ind.h                \
+	VectorPotential_v.h                \	
+	VectorPotential_acc.h                \
 	VdW.h                               \
 	WfDiag.h                            \
 	WfDyn.h                             \
 	WfExtrap.h                          \
 	WFPhaseRealVar.h                    \
 	CAP.h								\
+	LRC_alda.h                      \
+	LRC_alpha.h                    \
 	Xc.h
 
 

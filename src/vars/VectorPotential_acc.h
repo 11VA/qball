@@ -22,63 +22,56 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// EhrenSampleStepper.h
+// CellMass.h
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <config.h>
 
-#ifndef EHRENSAMPLESTEPPER_H
-#define EHRENSAMPLESTEPPER_H
+#ifndef VECTORPOTENTIAL_ACC_H
+#define VECTORPOTENTIAL_ACC_H
 
-#include "SampleStepper.h"
-#include "EnergyFunctional.h"
-#include "Sample.h"
-#include "Wavefunction.h"
-#include <ui/PlotCmd.h>
-#include <deque>
-#include "CurrentDensity.h"
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <stdlib.h>
 
-class WavefunctionStepper;
-class IonicStepper;
-using namespace std;
+#include <qball/Sample.h>
 
-class EhrenSampleStepper : public SampleStepper
+class VectorPotential_acc : public Var
 {
-  private:
-  
-  Wavefunction dwf;
-  Wavefunction* wfv;
-  deque<Wavefunction*> wfdeque;
-  VectorPotential* tempvp_;
-  
-  int nitscf_;
-  int nite_;
-  ChargeDensity cd_;
-  CurrentDensity currd_;
-  EnergyFunctional ef_;
-  
-  WavefunctionStepper* wf_stepper;
-  IonicStepper* ionic_stepper;
-
-  bool tddft_involved_;
-  
-  // Do not allow construction of EhrenSampleStepper unrelated to a Sample
-  EhrenSampleStepper(void);
+  Sample *s;
 
   public:
 
-  mutable TimerMap tmap;
+  char const*name ( void ) const { return "vector_potential_accel"; };
   
-  void step(int niter);
+  int set ( int argc, char **argv ) {
+    if ( argc != 4 ) {
+      ui->error("vector_potential_accel must be specified as a vector with 3 values");
+      return 1;
+    }
+    
+    D3vector v(atof(argv[1]), atof(argv[2]), atof(argv[3]));
+    
+    s->ctrl.initial_vp_acc = v;
+    return 0;
+  }
   
-  void get_forces(vector<vector<double> > &f) const;
-  double get_energy(string ename);
-  valarray<double> get_stress(string sname);
+  string print (void) const
+  {
+    ostringstream st;
+    st.setf(ios::left,ios::adjustfield);
+    st << setw(10) << name() << " = ";
+    st.setf(ios::right,ios::adjustfield);
+    st << setw(10) << s->ctrl.initial_vp_acc;
+    return st.str();
+  }
+  
+  VectorPotential_acc(Sample *sample) : s(sample) { s->ctrl.initial_vp_acc = D3vector(0.0, 0.0, 0.0); }
 
-  EhrenSampleStepper(Sample& s, int nitscf, int nite);
-  ~EhrenSampleStepper();
 };
+
 #endif
 
 // Local Variables:

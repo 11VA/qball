@@ -58,12 +58,14 @@ class XCPotential
   vector<complex<double> > tmpr;           // tmpr[ir]
   vector<complex<double> > tmp1, tmp2;     // tmp1[ig], tmp2[ig]
   
-  double exc_, dxc_, dxc0_, dxc1_, dxc2_;
+  double exc_, dxc_, dxc0_, dxc1_, dxc2_, exc0_;
   int nspin_;
   int ngloc_;
   int np012loc_;
   bool tddft_involved_;
   
+  bool xc0_stored_;
+  double beta_alda_;  // JY: beta*fxc_alda for recaled contact fxc 
   FourierTransform& vft_;
   Basis& vbasis_;
 
@@ -71,9 +73,10 @@ class XCPotential
   
   public:
 
+  vector<vector<double> > vxc0;          // vxc0[ispin][ir] at t0
   const XCFunctional* xcf() { return xcf_; }
   XCPotential(ChargeDensity& cd, const string functional_name);
-  XCPotential(ChargeDensity& cd, const string functional_name, ChargeDensity& cd_ecalc);
+  XCPotential(ChargeDensity& cd, const string functional_name, ChargeDensity& cd_ecalc, const double beta_alda);
   ~XCPotential();
   void update(vector<vector<double> >& vr);
   void update_exc(vector<vector<double> >& vr);

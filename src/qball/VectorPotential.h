@@ -47,30 +47,36 @@ public:
     POLARIZATION
   };
 
-  VectorPotential(Dynamics dyn, const D3vector & initial_value, double laser_freq, D3vector laser_amp, string envelope_type, double envelope_center, double envelope_width):
+VectorPotential(Dynamics dyn, const D3vector & initial_external, const D3vector & initial_induced,const D3vector & initial_velocity, const D3vector & initial_accel, double laser_freq, D3vector laser_amp, string envelope_type, double envelope_center, double envelope_width, double lrc_alpha):
     dynamics_(dyn),
-    external_(initial_value),
+    initial_external_(initial_external),
+    initial_induced_(initial_induced),
+    initial_velocity_(initial_velocity),
+    initial_accel_(initial_accel),
     laser_freq_(laser_freq),
     laser_amp_(laser_amp),
     envelope_type_(envelope_type),
     envelope_center_(envelope_center),
-    envelope_width_(envelope_width)
-  {
+    envelope_width_(envelope_width),
+    lrc_alpha_(lrc_alpha) {
 
-    if(norm(external_) > 1e-15 && norm(laser_amp) > 1e-15) {
-      Messages::fatal("Cannot specify a vector potential and a laser at the same time.");
-    }
-    
-    //if(fabs(laser_freq) < 1e-15 && norm(laser_amp) > 1e-15) {
-    //  Messages::fatal("The laser_freq cannot be zero. Zero for static field");
-    //}
-        
-    induced_ =  D3vector(0.0, 0.0, 0.0);
+    external_ = initial_external_;
+    induced_ =  initial_induced_;
     value_ = induced_ + external_;
     value2_ = norm(value_);
-    velocity_ = D3vector(0.0, 0.0, 0.0);
-    accel_ = D3vector(0.0, 0.0, 0.0);
-  }
+    velocity_ = initial_velocity_;
+    accel_ = initial_accel_;
+
+    if(norm(external_) > 1e-15 && norm(laser_amp) > 1e-15) {
+        Messages::fatal("Cannot specify a vector potential and a laser at the same time.");
+    }
+
+    if(fabs(laser_freq) < -1e-15 && norm(laser_amp) > 1e-15) {
+        Messages::fatal("The laser_freq cannot be zero. Zero is specifically for static electrical field");
+    }
+
+
+}
 
   double * get_kpgpa(const Basis & basis) const {
     const double * kpgpa2 = get_kpgpa2(basis);
@@ -135,20 +141,24 @@ public:
 
   void calculate_acceleration(const double & dt, const D3vector& total_current, const UnitCell & cell){
     //update the velocity to time t - dt/2
+    induced_ += 0.5*dt*velocity_ ;
     velocity_ += 0.5*dt*accel_;
 
     if(dynamics_ == Dynamics::POLARIZATION){
       accel_ = -4.0*M_PI*total_current/cell.volume();
+        if(lrc_alpha_ > 1.0e-4) {
+            accel_ = lrc_alpha_*total_current/cell.volume();
+        }
     } else {
       accel_ = D3vector(0.0, 0.0, 0.0);
     }
 
     //update the velocity to time t
     velocity_ += 0.5*dt*accel_;
+    induced_ += 0.5*dt*velocity_;
   }
   
   void propagate(double time, const double & dt){
-    induced_ += dt*velocity_ + 0.5*dt*dt*accel_;
      
     // evaluation of analytic form
     if(norm(laser_amp_) > 0.0 && envelope_type_ == "constant" && laser_freq_>0.0){ 
@@ -168,10 +178,60 @@ public:
            }
        }
     }
+    if(norm(laser_amp_) > 0.0 && envelope_type_ == "cos") external_ = (cos(laser_freq_*time)-1)*laser_amp_/laser_freq_;
     // Static external field
     if(norm(laser_amp_) > 0.0 && envelope_type_ == "constant" && laser_freq_ == 0.0) external_ = -laser_amp_ * time;
+    // Static external field
+	if(norm(laser_amp_) > 0.0 && envelope_type_ == "delta" && laser_freq_ == 0.0) {
+		if (time > envelope_center_) external_ = -laser_amp_;
+		else external_ = D3vector (0,0,0);
+	}
+    // Delta field
+    if(norm(laser_amp_) > 0.0 && envelope_type_ == "delta" && laser_freq_ == 0.0) external_ = laser_amp_;
     // Numerical integration for guassian d(A/c)/dt = - E = - Amp * Normalization_factor * cos(wt) * Gaussing(center,width)
     if(norm(laser_amp_) > 0.0 && envelope_type_ == "gaussian") external_ +=  - dt*(laser_amp_/(envelope_width_ * sqrt(M_PI*2.0))) * cos(laser_freq_*time) * exp(-((time-envelope_center_)*(time-envelope_center_))/(2.0*envelope_width_*envelope_width_)) ;
+
+// A = A0*F(t) = A0 * cos^2(wt/2N)* sin(wt)
+    if(norm(laser_amp_) > 0.0 && envelope_type_ == "Asin2" ) {
+        double N_sin = envelope_width_;
+        double omega_Aext = laser_freq_ /27.21138505;  // eV2hartree
+        double envelope_NT_  = N_sin*2.0*M_PI/omega_Aext;
+        D3vector A0_ext;
+        for(int i=0; i<3 ; i++) {
+            A0_ext[i]= 5.338e-9*sqrt(laser_amp_[i]);
+        }
+
+        bool test_pulse=false;
+        if(test_pulse) {
+            double fac1 = N_sin/(N_sin-1.0);
+            double fac1_inv  = 1.0/fac1;
+            double fac2 = N_sin/(N_sin+1.0);
+            double fac2_inv  = 1.0/fac2;
+            if(time < envelope_NT_) {
+                if(N_sin < 1.1) { // actually N=1
+
+                    external_=A0_ext*(1.0/omega_Aext*pow(sin(omega_Aext*time/2.0),2)- 4.0/ omega_Aext*pow(sin(omega_Aext*time),2)  );
+                }
+                else {
+
+                    external_=A0_ext*(1.0/omega_Aext*pow(sin(omega_Aext*time/2.0),2) -fac1/2.0/omega_Aext*pow(sin(omega_Aext*time/2.0*fac1_inv),2) -fac2/2.0/omega_Aext*pow(sin(omega_Aext*time/2.0*fac2_inv),2));
+                }
+
+            }
+            else {
+                external_ = D3vector(0.0, 0.0, 0.0);
+            }
+        }
+        else {
+            double tt =time - 0.5*envelope_NT_;
+            if(fabs(tt) < 0.5*envelope_NT_) {
+                external_=-A0_ext/omega_Aext*pow(cos(M_PI*tt/envelope_NT_),2)* sin(  omega_Aext*tt);
+            }
+            else {
+                external_ = D3vector(0.0, 0.0, 0.0);
+            }
+        }
+    }
 
     value_ = induced_ + external_;
     value2_ = norm(value_);
@@ -179,14 +239,29 @@ public:
   int get_eop(){
       return eop_;
   }
+  const D3vector & vp_velocity() const {
+    return velocity_;
+  }
+
+  const D3vector & vp_induced() const {
+    return induced_;
+  }  
+
+  const D3vector & vp_accel() const {
+    return accel_;
+  }  
   
 private:
   Dynamics dynamics_;
 
+  D3vector initial_external_;
   D3vector external_;
+  D3vector initial_induced_;  
   D3vector induced_;
   D3vector value_;
+  D3vector initial_velocity_;  
   D3vector velocity_;
+  D3vector initial_accel_;
   D3vector accel_;
   double value2_;
 
@@ -195,6 +270,7 @@ private:
   string envelope_type_;
   double envelope_width_;
   double envelope_center_;
+  double lrc_alpha_;
   int eop_=0;
 };
 #endif

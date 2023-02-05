@@ -133,6 +133,8 @@ using namespace std;
 #include <vars/ThTemp.h>
 #include <vars/ThTime.h>
 #include <vars/ThWidth.h>
+#include <vars/LRC_alpha.h>
+#include <vars/LRC_alda.h>
 #include <vars/CenterOfMass.h>
 #include <vars/WfDiag.h>
 #include <vars/WfDyn.h>
@@ -170,7 +172,10 @@ using namespace std;
 #include <vars/FcpPmass.h>
 #include <vars/FcpMu.h>
 #include <vars/VectorPotentialDynamics.h>
-#include <vars/VectorPotentialVar.h>
+#include <vars/VectorPotential_ext.h>
+#include <vars/VectorPotential_ind.h>
+#include <vars/VectorPotential_v.h>
+#include <vars/VectorPotential_acc.h>
 #include <vars/VdW.h>
 #include <vars/CAP.h>
 
@@ -390,6 +395,8 @@ int main(int argc, char **argv, char **envp)
   ui->addVar(new ThTemp(s));
   ui->addVar(new ThTime(s));
   ui->addVar(new ThWidth(s));
+  ui->addVar(new LRC_alpha(s));
+  ui->addVar(new LRC_alda(s));
   ui->addVar(new CenterOfMass(s));
   ui->addVar(new WfDiag(s));
   ui->addVar(new WfDyn(s));
@@ -431,7 +438,10 @@ int main(int argc, char **argv, char **envp)
   ui->addVar(new FcpPmass(s));
   ui->addVar(new FcpMu(s));
   ui->addVar(new VectorPotentialDynamics(s));
-  ui->addVar(new VectorPotentialVar(s));
+  ui->addVar(new VectorPotential_ext(s));
+  ui->addVar(new VectorPotential_ind(s));
+  ui->addVar(new VectorPotential_v(s));
+  ui->addVar(new VectorPotential_acc(s));
   ui->addVar(new VdW(s));
   ui->addVar(new CAP(s));
   
